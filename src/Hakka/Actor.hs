@@ -2,44 +2,56 @@
            , FlexibleContexts
            , MultiParamTypeClasses
            , ExistentialQuantification
+           , GeneralizedNewtypeDeriving
 #-}
 module Hakka.Actor where
 
+import Data.Monoid ( Last )
+
+import Control.Monad.IO.Class ( MonadIO( liftIO ) )
 import Control.Monad.Trans.Writer.Lazy ( WriterT, tell )
 import Control.Monad.Trans.Class ( MonadTrans( lift ) )
 
 
 data ActorRef a
 
-data SystemMessage = forall a. Actor a => SystemMessage
-    { to  :: ActorRef a
-    , msg :: AcceptsMsg a 
+data SystemMessage = forall m. Actor m => SystemMessage
+    { to  :: ActorRef m
+    , msg :: m 
     }
 
-type ActorContext = WriterT [SystemMessage] IO
+newtype ActorContext m a = ActorContext (WriterT (Last (Behavior m)) (WriterT [SystemMessage] IO) a)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    )
 
-newtype Behavior m = Behavior
-    { onMessage :: m -> ActorContext (Behavior m)
-    }
+type Behavior m = m -> ActorContext m ()
 
-class Actor a where
-    type AcceptsMsg a
-    startBehavior :: a -> Behavior (AcceptsMsg a)
+class Actor m where
+    startBehavior :: Behavior m
 
-send :: Actor a => ActorRef a -> AcceptsMsg a -> ActorContext ()
-send ref msg = tell [SystemMessage ref msg]
+send :: Actor m => ActorRef m -> m -> ActorContext m ()
+send ref msg = ActorContext $ lift $ tell [SystemMessage ref msg]
+
+switch :: Actor m => Behavior m -> ActorContext m ()
+switch = ActorContext . tell . return
 
 
 -- Test If Actor can be implemented
 
-data Message = HelloWorld
+data HelloMessage = HelloWorld
   deriving 
     ( Eq
     , Show
     )
 
-data HelloSayer = HelloSayer
-instance Actor HelloSayer where
-    type AcceptsMsg HelloSayer = Message
-    startBehavior _ = let b = Behavior (\msg -> lift (print msg) >> return b) in b
+instance Actor HelloMessage where
+  startBehavior = behavior 0
+    where
+      behavior i msg = do
+        liftIO $ putStrLn $ show i ++ " " ++ show msg
+        switch $ behavior $ i + 1 
 
