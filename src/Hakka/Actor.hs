@@ -2,18 +2,14 @@
            , FlexibleContexts
            , MultiParamTypeClasses
            , ExistentialQuantification
-           , DeriveDataTypeable
 #-}
 module Hakka.Actor where
-
-import Data.Proxy ( Proxy(..) )
-import Data.Typeable
 
 import Control.Monad.Trans.Writer.Lazy ( WriterT, tell )
 import Control.Monad.Trans.Class ( MonadTrans( lift ) )
 
-data ActorRef a = ActorRef String
-    deriving (Eq, Show)
+
+data ActorRef a
 
 data SystemMessage = forall a. Actor a => SystemMessage
     { to  :: ActorRef a
@@ -26,9 +22,9 @@ newtype Behavior m = Behavior
     { onMessage :: m -> ActorContext (Behavior m)
     }
 
-class (Eq (AcceptsMsg a), Show (AcceptsMsg a), Typeable a, Typeable (AcceptsMsg a)) => Actor a where
+class Actor a where
     type AcceptsMsg a
-    startBehavior :: Proxy a -> Behavior (AcceptsMsg a)
+    startBehavior :: a -> Behavior (AcceptsMsg a)
 
 send :: Actor a => ActorRef a -> AcceptsMsg a -> ActorContext ()
 send ref msg = tell [SystemMessage ref msg]
@@ -36,9 +32,13 @@ send ref msg = tell [SystemMessage ref msg]
 
 -- Test If Actor can be implemented
 
-data Message = HelloWorld deriving (Eq, Show, Typeable)
+data Message = HelloWorld
+  deriving 
+    ( Eq
+    , Show
+    )
 
-data HelloSayer = HelloSayer deriving (Eq, Show, Typeable)
+data HelloSayer = HelloSayer
 instance Actor HelloSayer where
     type AcceptsMsg HelloSayer = Message
     startBehavior _ = let b = Behavior (\msg -> lift (print msg) >> return b) in b
