@@ -33,7 +33,7 @@ type Behavior m = m -> ActorContext m ()
 class Actor m where
     startBehavior :: Behavior m
 
-send :: Actor m => ActorRef m -> m -> ActorContext m ()
+send :: (Actor s, Actor m) => ActorRef m -> m -> ActorContext s ()
 send ref msg = ActorContext $ lift $ tell [SystemMessage ref msg]
 
 switch :: Actor m => Behavior m -> ActorContext m ()
@@ -42,16 +42,25 @@ switch = ActorContext . tell . return
 
 -- Test If Actor can be implemented
 
-data HelloMessage = HelloWorld
+newtype Print = Print String
   deriving 
     ( Eq
     , Show
     )
 
-instance Actor HelloMessage where
+instance Actor Print where
   startBehavior = behavior 0
     where
-      behavior i msg = do
+      behavior i (Print msg) = do
         liftIO $ putStrLn $ show i ++ " " ++ show msg
         switch $ behavior $ i + 1 
 
+newtype Reverse = Reverse String
+  deriving 
+    ( Eq
+    , Show
+    )
+
+instance Actor Reverse where
+  startBehavior (Reverse msg) = do
+    send undefined $ Print $ reverse msg
