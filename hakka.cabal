@@ -9,20 +9,14 @@ license:             MIT
 license-file:        LICENSE
 author:              Martin Ring
 maintainer:          martin.ring@dfki.de
--- copyright:
 category:            Concurrency
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
+  hs-source-dirs:      src
   exposed-modules:     Hakka.Actor  
   build-depends:       base >=4.9 && <4.10,
                        transformers
-  default-language:    Haskell2010
-
-executable hakka-example
-  main-is:             Example.hs
-  hs-source-dirs:      Example
-  build-depends:       base >=4.9 && <4.10, hakka
   default-language:    Haskell2010
