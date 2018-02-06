@@ -12,6 +12,7 @@
 #-}
 module Hakka.Tree where
 
+import Data.Singleton.List
 import Data.Proxy ( Proxy(..) )
 import Data.Typeable ( Typeable(..), cast )
 import Data.Maybe ( fromJust )
@@ -23,7 +24,7 @@ import Control.Applicative ( Alternative(..), liftA2 )
 
 -- | A Rose Tree that keeps track of its kind.
 data a :#: b where
-  (:#:) :: TypedNodeList b => a -> b -> a :#: b
+  (:#:) :: a -> b
 deriving instance (Show a, Show b) => Show (a :#: b)
 deriving instance (Typeable a, Typeable b) => Typeable (a :#: b)
 infixr 6 :#:
@@ -51,7 +52,7 @@ instance (Typeable a, TypedNodeList b, TypedNodeList c) => TypedNodeList (a :#: 
 
 
 -- Typed Path in Tree --
-
+{-
 data a :/: b = Proxy a :/: b deriving (Eq, Show, Typeable)
 infixr 5 :/:
 
@@ -62,8 +63,8 @@ type family SubTree a0 a1 where
   SubTree  a         (    x     :+: t) = SubTree a t
   SubTree  a         Nil               = NotASubTree
 
-subTree :: (Typeable a, Typeable b, Typeable (SubTree a b)) => a -> b -> SubTree a b
-subTree a b = undefined{-fromJust $ asum 
+subTree :: forall a b. (Typeable a, Typeable b, Typeable (SubTree a b)) => a -> b -> SubTree a b
+subTree a b = fromJust $ asum 
     [ cast =<< liftA2 subTreeProxy (cast a) (cast b)
     , cast =<< liftA2 subTreePath  (cast a) (cast b)
     , cast =<< liftA2 subTreeRec   (cast a) (cast b)
@@ -74,7 +75,7 @@ subTree a b = undefined{-fromJust $ asum
     subTreePath :: (Typeable a, Typeable as, Typeable b, Typeable c) => (a :/: as) -> ((a :#: b) :+: c) -> (a :#: b)
     subTreePath = undefined
     subTreeRec :: (Typeable a, Typeable b, Typeable c) => a -> (b :+: c) -> SubTree a c
-    subTreeRec a (_ :+: c)= subTree a c-}
+    subTreeRec a (_ :+: c)= subTree a c
 
 class Selectable a b where
   type Selects a b
@@ -113,4 +114,4 @@ selectA = select _A
 
 selectB :: T -> C
 selectB = select (_A :/: _C)
-
+-}
