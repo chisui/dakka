@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                hakka
-version:             0.3.0
+version:             0.4.0
 synopsis:            Minimal akka-inspired actor library
 description:         Minimal akka-inspired actor library
 license:             MIT
@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Hakka.Actor  
+                     , Hakka.Tree 
   build-depends:       base
                      , containers
                      , transformers
