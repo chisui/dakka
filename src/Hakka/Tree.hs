@@ -26,15 +26,18 @@ import Data.Kind
 
 import Data.Singletons
 import Data.Singletons.TH
-import Data.Singletons.Prelude
 import Data.Singletons.Prelude.List
 import Data.Singletons.Prelude.List.NonEmpty
+import Data.Singletons.Prelude.Function
 import Data.Singletons.Prelude.Bool
 import Data.Singletons.Prelude.Maybe
 import Data.Singletons.Prelude.Eq
 
-import Data.Promotion.Prelude
+import Data.Promotion.Prelude.Bool
 import Data.Promotion.Prelude.Maybe
+import Data.Promotion.Prelude.List
+import Data.Promotion.Prelude.List.NonEmpty
+import Data.Promotion.Prelude.Function
 
 
 $(singletons [d|
@@ -42,20 +45,22 @@ $(singletons [d|
     data TTree a = TTree a [TTree a]
       deriving (Eq, Show, Read)
 
-    data TPath a = TPath (NonEmpty a)
+    class Predicate p a where
+      test :: p -> a -> Bool  
+    data TPath p (a :: *) = TPath (NonEmpty p)
 
     tRoot (TTree r _) = r
     tChildren (TTree _ cs) = cs
 
-    tSubTree :: Eq a => a -> [TTree a] -> Maybe (TTree a)
-    tSubTree a = find ((== a) . tRoot)
+    tSubTree :: Predicate p a => p -> [TTree a] -> Maybe (TTree a)
+    tSubTree p = find (test p . tRoot)
 
-    tSelect :: Eq a => TPath a -> TTree a -> Maybe a
-    tSelect (TPath (a :| as)) (TTree r cs) = if a == r
+    tSelect :: Predicate p a => TPath p a -> TTree a -> Maybe a
+    tSelect (TPath (a :| as)) (TTree r cs) = if test a r
         then tSelect' r as cs
         else Nothing
       where
-        tSelect' :: Eq b => b -> [b] ->  [TTree b] -> Maybe b
+        tSelect' :: Predicate q b => b -> [q] ->  [TTree b] -> Maybe b
         tSelect' r' []     _  = Just r'
         tSelect' r' (p:ps) ts = case tSubTree p ts of
             Nothing                -> Nothing
@@ -109,5 +114,4 @@ t = SCA "0" .->. (
             SNil) `SCons`
         leaf (SCC "0.1") `SCons`
         SNil) 
-
 
