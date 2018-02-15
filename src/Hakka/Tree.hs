@@ -39,31 +39,75 @@ import Data.Promotion.Prelude.Maybe
 
 $(singletons [d|
     
-    data Tree a = Tree a [Tree a]
+    data TTree a = TTree a [TTree a]
       deriving (Eq, Show, Read)
 
-    type Path a = NonEmpty a
+    data TPath a = TPath (NonEmpty a)
 
-    root (Tree r _) = r
-    children (Tree _ cs) = cs
+    tRoot (TTree r _) = r
+    tChildren (TTree _ cs) = cs
 
-    subTree :: Eq a => a -> [Tree a] -> Maybe (Tree a)
-    subTree a = find ((== a) . root)
+    tSubTree :: Eq a => a -> [TTree a] -> Maybe (TTree a)
+    tSubTree a = find ((== a) . tRoot)
 
-    select :: Eq a => Path a -> Tree a -> Maybe a
-    select (a :| as) (Tree r cs) = if a == r
-        then select' r as cs
+    tSelect :: Eq a => TPath a -> TTree a -> Maybe a
+    tSelect (TPath (a :| as)) (TTree r cs) = if a == r
+        then tSelect' r as cs
         else Nothing
       where
-        select' :: Eq b => b -> [b] ->  [Tree b] -> Maybe b
-        select' r' []     _  = Just r'
-        select' r' (p:ps) ts = case subTree p ts of
-            Nothing               -> Nothing
-            (Just (Tree r'' cs')) -> select' r'' ps cs'
+        tSelect' :: Eq b => b -> [b] ->  [TTree b] -> Maybe b
+        tSelect' r' []     _  = Just r'
+        tSelect' r' (p:ps) ts = case tSubTree p ts of
+            Nothing                -> Nothing
+            (Just (TTree r'' cs')) -> tSelect' r'' ps cs'
   
   |])
 
+type (:->:) = 'TTree
+(.->.) = STTree
+
+type Leaf a = 'TTree a '[]
+leaf a = STTree a SNil
+
+-- ------------------- --
+-- Stupid inline Tests --
+-- ------------------- --
 
 
+data A = CA String deriving (Eq, Show)
+data instance Sing A where
+  SCA :: String -> Sing A
+
+data B = CB String deriving (Eq, Show)
+data instance Sing B where
+  SCB :: String -> Sing B
+
+data C = CC String deriving (Eq, Show)
+data instance Sing C where
+  SCC :: String -> Sing C
+
+data D = CD String deriving (Eq, Show)
+data instance Sing D where
+  SCD :: String -> Sing D
+
+data E = CE String deriving (Eq, Show)
+data instance Sing E where
+  SCE :: String -> Sing E
+
+{-
+t :: STTree (
+    A :->: '[
+        B :->: '[
+            Leaf D,
+            Leaf E], 
+        Leaf C])
+-}
+t = SCA "0" .->. (
+        SCB "0.0" .->. (
+            leaf (SCD "0.0.0") `SCons`
+            leaf (SCE "0.0.1") `SCons`
+            SNil) `SCons`
+        leaf (SCC "0.1") `SCons`
+        SNil) 
 
 
