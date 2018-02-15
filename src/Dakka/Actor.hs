@@ -6,7 +6,7 @@
            , DeriveDataTypeable
            , TupleSections
 #-}
-module Hakka.Actor where
+module Dakka.Actor where
 
 import Type.Reflection ( Typeable, typeOf, splitApps, SomeTypeRep )
 import Data.Maybe ( fromMaybe )

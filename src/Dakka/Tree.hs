@@ -16,7 +16,7 @@
            , TemplateHaskell
            , QuasiQuotes
 #-}
-module Hakka.Tree where
+module Dakka.Tree where
 
 import Data.Maybe
 import Data.List
