@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeOperators
            , DeriveDataTypeable
+           , UndecidableSuperClasses
            , TypeFamilies
            , UndecidableInstances
            , MultiParamTypeClasses
@@ -28,7 +29,7 @@ import Data.Kind
 
 import Data.Singletons
 import Data.Singletons.TH
-import Data.Singletons.Prelude.List
+import Data.Singletons.Prelude.List hiding ( All )
 import Data.Singletons.Prelude.List.NonEmpty
 import Data.Singletons.Prelude.Function
 import Data.Singletons.Prelude.Bool
@@ -37,7 +38,7 @@ import Data.Singletons.Prelude.Eq
 
 import Data.Promotion.Prelude.Bool
 import Data.Promotion.Prelude.Maybe
-import Data.Promotion.Prelude.List
+import Data.Promotion.Prelude.List hiding ( All )
 import Data.Promotion.Prelude.List.NonEmpty
 import Data.Promotion.Prelude.Function
 
@@ -45,36 +46,60 @@ import Data.Promotion.Prelude.Function
 $(singletons
   [d|
     
-    data TTree a = a :-> [TTree a]
+    data RoseTree a 
+        = a :-> [RoseTree a]
       deriving (Eq, Show, Read)
 
-    class Predicate p a where
-      test :: p -> a -> Bool  
-    data TPath p (a :: *) = TPath (NonEmpty p)
+    type TreePath a = NonEmpty (a -> Bool)
 
-    tRoot (r :-> _) = r
-    tChildren (_ :-> cs) = cs
+    root (r :-> _) = r
+    children (_ :-> cs) = cs
 
-    tSubTree :: Predicate p a => p -> [TTree a] -> Maybe (TTree a)
-    tSubTree p = find (test p . tRoot)
+    subTree :: (a -> Bool) -> [RoseTree a] -> Maybe (RoseTree a)
+    subTree p = find (p . root)
 
-    tSelect :: Predicate p a => TPath p a -> TTree a -> Maybe a
-    tSelect (TPath (a :| as)) (r :-> cs) = if test a r
-        then tSelect' r as cs
+    select :: TreePath a -> RoseTree a -> Maybe a
+    select (a :| as) (r :-> cs) = if a r
+        then select' r as cs
         else Nothing
       where
-        tSelect' :: Predicate q b => b -> [q] ->  [TTree b] -> Maybe b
-        tSelect' r' []     _  = Just r'
-        tSelect' r' (p:ps) ts = case tSubTree p ts of
-            Nothing                -> Nothing
-            (Just (r'' :-> cs')) -> tSelect' r'' ps cs'
+        select' :: b -> [b -> Bool] ->  [RoseTree b] -> Maybe b
+        select' r' []     _  = Just r'
+        select' r' (p:ps) ts = case subTree p ts of
+            Nothing              -> Nothing
+            (Just (r'' :-> cs')) -> select' r'' ps cs'
   
   |])
 
-type Leaf a = a ':-> '[]
-leaf a = a :%-> SNil
-(.:) = SCons
-a .:. b = SCons a (SCons b SNil)
+
+data TypedList (a :: [k]) where
+  TNil  :: TypedList '[]
+  TCons :: a -> TypedList as -> TypedList (a ': as)
+
+
+class All (f :: k -> Constraint) xs
+instance AllList f xs => All f xs
+
+type family AllList (c :: k -> Constraint) (xs :: [k]) :: Constraint where
+  AllList _c '[]       = ()
+  AllList  c (x ': xs) = (c x, All c xs)
+
+instance AllTree f t => All f t
+
+type family AllTree (c :: k -> Constraint) (t :: RoseTree k) :: Constraint where
+  AllTree c (a ':-> as) = (c a, All c as)
+
+instance All Show l => Show (TypedList l) where
+  show = show . tmap show
+
+class TypedFunctor (f :: k -> *) where
+  type TMap f m
+  tmap :: All c f => (forall a. c a => a -> ) -> f  
+
+data TypedTree (a :: RoseTree *) where
+  (:|->) :: a -> TypedList c -> TypedTree (a ':-> c)
+instance (Show a, Show (TypedList c)) => Show (TypedTree (a ':-> c)) where
+  show (a :|-> c) = show a ++ " :|-> " ++ show c
 
 -- ------------------- --
 -- Stupid inline Tests --
@@ -82,39 +107,8 @@ a .:. b = SCons a (SCons b SNil)
 
 
 data A = CA String deriving (Eq, Show, Typeable)
-data instance Sing A where
-  SCA :: String -> Sing A
-
 data B = CB String deriving (Eq, Show, Typeable)
-data instance Sing B where
-  SCB :: String -> Sing B
-
 data C = CC String deriving (Eq, Show, Typeable)
-data instance Sing C where
-  SCC :: String -> Sing C
-
 data D = CD String deriving (Eq, Show, Typeable)
-data instance Sing D where
-  SCD :: String -> Sing D
-
 data E = CE String deriving (Eq, Show, Typeable)
-data instance Sing E where
-  SCE :: String -> Sing E
-
-{-
-t :: STTree (
-    A :-> '[
-        B :-> '[
-            Leaf D,
-            Leaf E], 
-        Leaf C])
--}
-t = SCA "0" :%-> 
-        (   SCB "0.0" :%-> 
-            (   leaf (SCD "0.0.0") 
-            .:. leaf (SCE "0.0.1")
-            )
-        .:. leaf (SCC "0.1")
-        ) 
-
 

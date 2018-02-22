@@ -16,8 +16,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Hakka.Actor  
-                     , Hakka.Tree 
+  exposed-modules:     Dakka.Actor  
+                     , Dakka.Tree 
   build-depends:       base
                      , containers
                      , transformers
