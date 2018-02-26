@@ -60,6 +60,8 @@ deriving instance Show a => Show (Tree a)
 
 data MixedTree (t :: Tree k) where
   (:|->) :: a -> SubTrees c -> MixedTree (a ':-> c)
+leaf a = a :|-> MNil
+
 instance (Show a, Show (SubTrees c)) => Show (MixedTree (a ':-> c)) where
   show (a :|-> c) = show a ++ " :|-> (" ++ show c ++ ")"
 
@@ -77,8 +79,9 @@ instance (Lifted (SubTrees c), Typeable a, Lowered (SubTrees c) ~ [Tree Dynamic]
   type Lowered (MixedTree (a ':-> c)) = Tree Dynamic
   lower (a :|-> b) = toDyn a :-> lower b
 
-t0 = 1 :|-> MNil
-t1 = 1 :|-> (('c' :|-> MNil) ::: MNil)
-t2 = 1 :|-> ( ('c' :|-> MNil)
+t0 = leaf 1
+t1 = 1 :|-> (leaf 'c' ::: MNil)
+t2 = 1 :|-> ( leaf 'c'
           ::: ((1,2) :|-> (("x" :|-> MNil) ::: MNil))
           ::: MNil)
+
