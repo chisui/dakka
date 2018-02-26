@@ -15,6 +15,7 @@
 module Dakka.Actor where
 
 import Type.Reflection ( Typeable, typeOf, splitApps, SomeTypeRep )
+import Data.Proxy ( Proxy(..) )
 import Data.Maybe ( fromMaybe )
 import Data.Monoid ( Last(..) )
 import Data.Bifunctor ( first ) 
@@ -37,6 +38,8 @@ class Actor s m | s -> m where
   type Creates s = '[]
   behavior :: Behavior s (Creates s) m
 
+behaviorOf :: Actor s m => Proxy s -> Behavior s (Creates s) m
+behaviorOf _ = behavior
 
 -- Test --
 

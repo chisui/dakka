@@ -18,6 +18,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Dakka.Actor  
                      , Dakka.Tree 
+                     , Dakka.MixedSingleton 
   build-depends:       base
                      , containers
                      , transformers
