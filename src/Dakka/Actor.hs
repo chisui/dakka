@@ -36,7 +36,7 @@ import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 -- | A path of an Actor inside the Actor system.
 -- FIXME This is a Bullshit implementation
-data Path a = Path {-# UNPACK #-} !Word
+newtype Path a = Path Word
     deriving (Show, Eq, Typeable)
 
 -- | Execution Context of an 'Actor'.
@@ -83,7 +83,6 @@ data CreationIntent= forall a. Actor a => CreationIntent a
 deriving instance Show CreationIntent
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
---
 newtype MockActorContext a v = MockActorContext
     (StateT a (Writer [Either Envelope CreationIntent]) v)
   deriving (Functor, Applicative, Monad, MonadState a, MonadWriter [Either Envelope CreationIntent])
@@ -91,14 +90,18 @@ newtype MockActorContext a v = MockActorContext
 instance Actor a => ActorContext a (MockActorContext a) where
 
     create a = do
-      tell [Right $ CreationIntent a]
-      return $ Path 0
+        tell [Right $ CreationIntent a]
+        return $ Path 0
     
     p ! m = tell [Left $ Envelope p m]
 
+-- | Execute a 'Behavior' in a 'MockActorContext'.
 execMock :: MockActorContext a b -> a -> (a, [Either Envelope CreationIntent])
 execMock (MockActorContext ctx) = runWriter . execStateT ctx
 
+-- ------- --
+--  Actor  --
+-- ------- --
 
 type Behavior a = forall m. ActorContext a m => Message a -> m ()
 type RichData a = (Show a, Eq a, Typeable a)
@@ -112,7 +115,10 @@ class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => 
 behaviorOf :: Proxy a -> Behavior a 
 behaviorOf = const behavior
 
--- Test --
+
+-- -------- --
+--   Test   --
+-- -------- --
 
 newtype TestActor = TestActor
     { i :: Int
