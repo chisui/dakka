@@ -74,32 +74,22 @@ $(singletons
 
 data TypedList (a :: [k]) where
   TNil  :: TypedList '[]
-  TCons :: a -> TypedList as -> TypedList (a ': as)
+  (:::) :: a -> TypedList as -> TypedList (a ': as)
+instance Show (TypedList '[]) where
+  show TNil = "TypedList []"
+instance (Show a, Show (TypedList as)) => Show (TypedList (a ': as)) where
+  show (a ::: as) = "TypedList [" ++ show a ++ end
+    where
+      next = Data.List.drop 11 $ show as
+      end  = if next == "]" then "]" else ", " ++ next
 
+data TypedTree (a :: k) where
+  (:|->) :: a -> TypedList c -> TypedTree (a ':-> Demoted c)
 
-class All (f :: k -> Constraint) xs
-instance AllList f xs => All f xs
+type family Demoted (l :: [k]) :: [j]
+type instance Demoted '[] = '[]
+type instance Demoted (TypedTree a ': as) = a ': Demoted as
 
-type family AllList (c :: k -> Constraint) (xs :: [k]) :: Constraint where
-  AllList _c '[]       = ()
-  AllList  c (x ': xs) = (c x, All c xs)
-
-instance AllTree f t => All f t
-
-type family AllTree (c :: k -> Constraint) (t :: RoseTree k) :: Constraint where
-  AllTree c (a ':-> as) = (c a, All c as)
-
-instance All Show l => Show (TypedList l) where
-  show = show . tmap show
-
-class TypedFunctor (f :: k -> *) where
-  type TMap f m
-  tmap :: All c f => (forall a. c a => a -> ) -> f  
-
-data TypedTree (a :: RoseTree *) where
-  (:|->) :: a -> TypedList c -> TypedTree (a ':-> c)
-instance (Show a, Show (TypedList c)) => Show (TypedTree (a ':-> c)) where
-  show (a :|-> c) = show a ++ " :|-> " ++ show c
 
 -- ------------------- --
 -- Stupid inline Tests --
@@ -111,4 +101,6 @@ data B = CB String deriving (Eq, Show, Typeable)
 data C = CC String deriving (Eq, Show, Typeable)
 data D = CD String deriving (Eq, Show, Typeable)
 data E = CE String deriving (Eq, Show, Typeable)
+
+
 

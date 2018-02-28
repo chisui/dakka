@@ -37,3 +37,31 @@
   ```
   Die Typefamily `ElemF` ist hier absichtlich partiell um bessere Fehlermeldungen zu erzeugen. Gäb es einen `ElemF e '[] = 'False` Fall wäre die die Fehlermeldung: `couldn't match type ´'False´ with 'True´`. Das selbe würde passieren wenn `Elem` aus `singletons` verwendet würde. So ist die Fehlermeldung `Couldn't match type ´ElemF <Actor> <CreatesList>´ with ´'True´`.
 - Die Fehlermeldung könnte noch weiter verbessert werden indem die geschlosse Typefamily in mehrere, überlappende Instanzen übersetzt würde. Das ist allerdings nicht möglich, da Es dann mehrere declatationen für `Elem e (a ': as)` gäbe, die sich ausschließlich in ihren Constraints unterscheiden.
+- Mit der `ConstraintKinds` Erweiterung ist es möglich partielle Typefamilien als Constraint zu verwenden.
+- Mit der `TypeOperators` Erweiterung können infix Typoperatoren definiert werden. Diese müssen mit einem `:` beginnen. Zusammen mit `ConstraintKinds` lässt sich `Elem` so ausdrücken:
+  ```
+  type family (e :: k) :∈ (l :: [k]) :: Constraint where
+      e :∈ (e ': as) = ()
+      e :∈ (a ': as) = e :∈ as
+  ```
+  Fehlermeldungen sehen damit so aus: `Could not deduce: <Actor> :∈ <CreatesList>`.
+
+## Actor
+
+```haskell
+type Behavior a = forall m. ActorContext a m => Message a -> m ()
+type RichData a = (Show a, Eq a, Typeable a)
+class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
+    type Creates a :: [*]
+    type Creates a = '[]
+
+    type Message a :: *
+    behavior :: ActorContext a m => Behavior a
+```
+
+- An `Actor` is represented by the type of its state.
+- Additionally an `Actor` has to associated types:
+- - The types of immediat child Actors it may create, which is none by default. This type is an associated typefamily so it may have a default.
+- - The type of message it may consume. This type could have been part of the class signature and bound by a functional dependency but expressing it as an associated typefamily makes for cleaner Constraints: `Actor a` vs. `Actor a m` where `m` wont may be unused.
+- Both the actor state and the message type have to implement some basic classes to enable debugging.
+- All members of the `Creates` List have to be `Actors`.

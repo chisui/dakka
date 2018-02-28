@@ -11,41 +11,122 @@
            , StandaloneDeriving
            , DeriveDataTypeable
            , TupleSections
+           , PackageImports
+           , TypeOperators
+           , ConstraintKinds
+           , PolyKinds
+           , RankNTypes
+           , UndecidableInstances
+           , UndecidableSuperClasses
 #-}
 module Dakka.Actor where
 
-import Type.Reflection ( Typeable, typeOf, splitApps, SomeTypeRep )
-import Data.Proxy ( Proxy(..) )
-import Data.Maybe ( fromMaybe )
-import Data.Monoid ( Last(..) )
-import Data.Bifunctor ( first ) 
+import Dakka.Constraints
 
-import Control.Monad.IO.Class ( MonadIO( liftIO ) )
-import Control.Monad.Trans.Writer.Lazy ( WriterT( runWriterT ), tell, execWriterT )
-import Control.Monad.Trans.State.Lazy ( StateT )
-import Control.Monad.Trans.Class ( MonadTrans( lift ) )
+import "base" Data.Kind ( Constraint )
+import "base" Type.Reflection ( Typeable )
+import "base" Data.Proxy ( Proxy(..) )
+
+import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
+import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
+
+import "mtl" Control.Monad.State.Class ( MonadState, modify )
+import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 
-data Envelope = Envelope
-data NewActor = NewActor
+-- | A path of an Actor inside the Actor system.
+-- FIXME This is a Bullshit implementation
+data Path a = Path {-# UNPACK #-} !Word
+    deriving (Show, Eq, Typeable)
 
-type Behavior s (c :: [*]) m = m -> ActorContext s c ()
-newtype ActorContext s (c :: [*]) a = ActorContext (StateT s (WriterT ([Envelope], [NewActor]) IO) a)
-  deriving (Functor, Applicative, Monad)
+-- | Execution Context of an 'Actor'.
+-- Has to provide ways to:
+--
+--     * change the state of an `Actor` (through `MonadState`)
+--
+--     * send messages to other actors
+--
+--     * create new actors.
+-- 
+class (Actor a, MonadState a m) => ActorContext (a :: *) (m :: * -> *) | m -> a where
+    {-# MINIMAL create, (send | (!)) #-}
 
-class Actor s m | s -> m where
-  type Creates s :: [*]
-  type Creates s = '[]
-  behavior :: Behavior s (Creates s) m
+    -- | Creates a new `Actor` of type 'b' with provided start state
+    create :: (Actor b, b :∈ Creates a) => b -> m (Path b)
 
-behaviorOf :: Actor s m => Proxy s -> Behavior s (Creates s) m
-behaviorOf _ = behavior
+    -- | If the Actors state is a 'Monoid' no inital State has to be provided.
+    create' :: (Actor b, b :∈ Creates a, Monoid b) => m (Path b)
+    create' = create mempty
+
+    -- | Send a message to another actor
+    send :: Actor b => Path b -> Message b -> m ()
+    send = (!)
+
+    -- | Alias for 'send' to enable akka style inline send.
+    (!) :: Actor b => Path b -> Message b -> m ()
+    (!) = send
+
+-- ---------------- --
+-- MockActorContext --
+-- ---------------- --
+
+-- | Encapsulates a Message sent to an actor
+data Envelope = forall a. Actor a => Envelope
+    { to  :: Path a
+    , msg :: Message a
+    }
+deriving instance Show Envelope
+
+
+-- | Encapsulates the intent to create another actor.
+data CreationIntent= forall a. Actor a => CreationIntent a
+deriving instance Show CreationIntent
+
+-- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
+--
+newtype MockActorContext a v = MockActorContext
+    (StateT a (Writer [Either Envelope CreationIntent]) v)
+  deriving (Functor, Applicative, Monad, MonadState a, MonadWriter [Either Envelope CreationIntent])
+
+instance Actor a => ActorContext a (MockActorContext a) where
+
+    create a = do
+      tell [Right $ CreationIntent a]
+      return $ Path 0
+    
+    p ! m = tell [Left $ Envelope p m]
+
+execMock :: MockActorContext a b -> a -> (a, [Either Envelope CreationIntent])
+execMock (MockActorContext ctx) = runWriter . execStateT ctx
+
+
+type Behavior a = forall m. ActorContext a m => Message a -> m ()
+type RichData a = (Show a, Eq a, Typeable a)
+class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
+    type Creates a :: [*]
+    type Creates a = '[]
+  
+    type Message a :: *
+    behavior :: Behavior a
+
+behaviorOf :: Proxy a -> Behavior a 
+behaviorOf = const behavior
 
 -- Test --
 
+newtype TestActor = TestActor
+    { i :: Int
+    } deriving (Show, Eq, Typeable)
+instance Actor TestActor where
+  type Message TestActor = String
+  type Creates TestActor = '[OtherActor]
+  behavior m = do
+      modify (TestActor . succ . i) 
+      p <- create OtherActor
+      p ! Msg m
 
-data TestActor = TestActor
-
-instance Actor TestActor String where
-  behavior m = undefined 
-
+newtype Msg = Msg String deriving (Show, Eq, Typeable)
+data OtherActor = OtherActor deriving (Show, Eq, Typeable)
+instance Actor OtherActor where
+  type Message OtherActor = Msg
+  behavior m = undefined
