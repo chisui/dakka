@@ -3,14 +3,11 @@
            , TypeFamilies
            , MultiParamTypeClasses
            , FunctionalDependencies
-           , TypeSynonymInstances
            , DataKinds
            , ExistentialQuantification
            , GeneralizedNewtypeDeriving
-           , ScopedTypeVariables
            , StandaloneDeriving
            , DeriveDataTypeable
-           , TupleSections
            , PackageImports
            , TypeOperators
            , ConstraintKinds
@@ -24,7 +21,6 @@ module Dakka.Actor where
 import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, cast )
 import "base" Data.Proxy ( Proxy(..) )
-import "base" Data.Function ( on )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
@@ -118,16 +114,26 @@ type Behavior a = forall m. (ActorContext a m, m `ImplementsAll` Capabillities a
 type RichData a = (Show a, Eq a, Typeable a)
 
 class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
-    -- | 
+    -- | List of all types of actors that this actor may create in its lifetime.
     type Creates a :: [*]
     type Creates a = '[]
   
+    -- | Type of Message this Actor may recieve
     type Message a :: *
 
+    -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
     type Capabillities a :: [(* -> *) -> Constraint]
     type Capabillities a = '[]
 
+    -- | This Actors behavior
     behavior :: Behavior a
+
+-- | A pure 'Actor' is one that has no additional Capabillities besides what a 
+-- 'ActorContext' provides.
+type PureActor a = (Actor a, Capabillities a ~ '[])
+
+-- | A leaf 'Actor' is one that doesn't create any children.
+type LeafActor a = (Actor a, Creates a ~ '[])
 
 behaviorOf :: Proxy a -> Behavior a 
 behaviorOf = const behavior
