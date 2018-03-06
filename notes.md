@@ -66,6 +66,40 @@ class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => 
 - Both the actor state and the message type have to implement some basic classes to enable debugging.
 - All members of the `Creates` List have to be `Actors`.
 
+### Behavior
+
+The behavior of an `Actor` can cause three things:
+
+1. Change the interal state of the `Actor`
+2. Send messages to other actors
+3. Create new actors
+
+All these effects can be expressed using Monad transformers. The state change can be represented by `StateT` and sending messages and creating actors by `WriterT` respectively. We also need to encapsulate sideeffects in some way so we are pretty much forced to create a monadic structure. Lets call this combined Monad `ActorContext` for now. One sensible way of defining `ActorContext` might be:
+
+```haskell
+data SystemMessage
+    = forall a. Actor a => Create (Proxy a)
+    | forall a. Actor a => Send (Path a) (Message a)
+type ActorContext a = (Actor a) => StateT a (WriterT [SystemMessage] IO) 
+```
+
+Since we used monad transformers `ActorContext` has an `MonadState` instance. So we don't have to define anything to enable state changes of the actor. With this definition we can define functions for sending messages and creating actors:
+
+```haskell
+create :: (Actor a, Actor b, b :∈ Creates a) => Proxy b -> ActorContext a ()
+create p = tell [Create p]
+
+send :: (Actor a, Actor b) => Path b -> Message b -> ActorContext a ()
+send p m = tell [Send p m]
+```
+
+Having a rigid occurence of `IO` in the context though is less than desireable. This means that we can't confidently test any behavior. It would be better to abstract at least the `IO` part of the context we have to change the definition of `ActorContext`. A first step could be to lift the transfomred monad to a type variable:
+
+```haskell
+type ActorContext a m = Actor a => StateT a (WriterT [SystemMessage] m)
+```
+
+
 ### Answering messages
 
 It's important for a functioning Actor system for actors to be able to respond to messages in a meaningful way. So we have to ensure that this is possible in our implementation supports it.
@@ -101,7 +135,33 @@ instance Actor MyActor where
         sender ! toMyResponse "hello"
 ```
 
-I suspect that writing a converter class for responses and having a Message type that embedds a reference to the sender that is constrained by that converter class will be a common pattern. It may make sense to provide an abstraction for this type of pattern.
+I suspect that writing a converter class for responses and having a Message type that embedds a reference to the sender that is constrained by that converter class will be a common pattern. It may make sense to provide an abstraction for this type of pattern:
+
+```haskell
+class a `Injectable` b where
+    inject :: a -> b
+instance a `Injectable` a where inject = id
+data AnswerableMsg r = forall a. (Actor a, r `Injectable` (Message a))
+    => AnswerableMsg
+        { sender :: Path a
+        } deriving Typeable
+
+answer :: ActorContext a m => r -> AnswerableMsg r -> m ()
+answer r (AnswerableMsg sender) = sender ! inject r
+```
+
+Since messages have to satisfy the `Eq` constraint we can't add the conversion function as a field on the message itself. On the other hand you could define several standard instances for `Injectable` like `Applicative f => Injectable a (f a)`, `IsString t => Injectable String t` or `Injectable Word Integer`.
+
+It should also be ensured that `inject` is in fact injective. This could be achieved either by using something like liquid haskell or adding a function `extract :: b -> Maybe a` with the law `extract (inject a) == Just a`.
+
+With this boilerplate we don't need to define a custom classified message type and the `Actor` definition is reduced to:
+
+```haskell
+data MyActor = MyActor deriving (Eq, Show, Typeable)
+instance Actor MyActor where
+    type Message MyActor = AnswerableMsg String
+    behavior = answer "hello"
+```
 
 ## Additional Effects
 
