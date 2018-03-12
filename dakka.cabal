@@ -17,9 +17,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Dakka.Actor  
-                     , Dakka.Tree 
                      , Dakka.MixedSingleton 
                      , Dakka.Type.Path
+                     , Dakka.Type.Tree 
                      , Dakka.Convert
   other-modules:       Dakka.Constraints
   build-depends:       base

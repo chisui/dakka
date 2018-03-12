@@ -22,6 +22,7 @@
            , FlexibleContexts
            , StandaloneDeriving
            , TemplateHaskell
+           , GeneralizedNewtypeDeriving
            , QuasiQuotes
            , TypeApplications
            , PackageImports
@@ -129,7 +130,7 @@ instance Show (IndexedPath p) where
 -- | Represents a Segement of an 'IndexedPath'.
 newtype IndexedRef a
     = IR Word
-  deriving (Eq, Ord, Functor)
+  deriving (Eq, Ord, Functor, Enum)
 
 ref :: Typeable a => Word -> IndexedRef a
 ref = IR

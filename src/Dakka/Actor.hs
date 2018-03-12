@@ -37,7 +37,7 @@ import Dakka.Convert
 
 -- | A path of an Actor inside the Actor system.
 -- FIXME This is a Bullshit implementation
-newtype  a = Path Word
+newtype Path a = Path Word
     deriving (Show, Eq, Typeable)
 
 -- | Execution Context of an 'Actor'.
@@ -112,8 +112,6 @@ execMock (MockActorContext ctx) = runWriter . execStateT ctx
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
 type Behavior a = forall m. (ActorContext a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
 
--- | To be able to route values through an actor system these values have provide certain features.
-type RichData a = (Show a, Eq a, Typeable a)
 
 class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
     -- | List of all types of actors that this actor may create in its lifetime.
@@ -160,11 +158,6 @@ answer r (AnswerableMessage ref) = ref ! convert r
 --   Test   --
 -- -------- --
 
--- | Utillity function for equality of Typeables.
--- FIXME move to differenct module.
-(=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool
-a =~= b = Just a == cast b
-
 -- | Actor with all bells and whistles.
 newtype TestActor = TestActor
     { i :: Int
@@ -199,9 +192,6 @@ instance Actor OtherActor where
   startState = OtherActor
 
 -- | Actor that handles references to other Actors
-class Response a where
-  toResponse :: String -> a
-
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
     type Message WithRef = AnswerableMessage String
