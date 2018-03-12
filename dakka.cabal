@@ -19,6 +19,8 @@ library
   exposed-modules:     Dakka.Actor  
                      , Dakka.Tree 
                      , Dakka.MixedSingleton 
+                     , Dakka.Type.Path
+                     , Dakka.Convert
   other-modules:       Dakka.Constraints
   build-depends:       base
                      , containers

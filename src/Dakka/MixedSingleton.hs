@@ -17,6 +17,7 @@
            , StandaloneDeriving
            , TemplateHaskell
            , QuasiQuotes
+           , TypeApplications
 #-}
 module Dakka.MixedSingleton where
 

@@ -32,11 +32,12 @@ import "mtl" Control.Monad.State.Class ( MonadState, modify )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Constraints
+import Dakka.Convert
 
 
 -- | A path of an Actor inside the Actor system.
 -- FIXME This is a Bullshit implementation
-newtype Path a = Path Word
+newtype  a = Path Word
     deriving (Show, Eq, Typeable)
 
 -- | Execution Context of an 'Actor'.
@@ -143,6 +144,17 @@ type LeafActor a = (Actor a, Creates a ~ '[])
 behaviorOf :: Proxy a -> Behavior a 
 behaviorOf = const behavior
 
+data AnswerableMessage r = forall a. (Actor a, Convertible r (Message a)) => AnswerableMessage
+    { askerRef :: Path a
+    }
+deriving instance Typeable r => Typeable (AnswerableMessage r)
+instance Eq (AnswerableMessage r) where
+    (AnswerableMessage a) == (AnswerableMessage b) = a =~= b
+instance Show (AnswerableMessage r) where
+    show (AnswerableMessage a) = "AnswerableMessage " ++ show a
+
+answer :: (Actor a, ActorContext a m) => r -> AnswerableMessage r -> m ()
+answer r (AnswerableMessage ref) = ref ! convert r
 
 -- -------- --
 --   Test   --
@@ -174,8 +186,8 @@ instance Actor TestActor where
 -- | Actor with custom message type.
 -- This one also communicates with another actor and expects a response.
 newtype Msg = Msg String deriving (Show, Eq, Typeable)
-instance Response Msg where
-  toResponse = Msg
+instance Convertible String Msg where
+    convert = Msg
 data OtherActor = OtherActor deriving (Show, Eq, Typeable)
 instance Actor OtherActor where
   type Message OtherActor = Msg
@@ -183,22 +195,15 @@ instance Actor OtherActor where
   behavior m = do
       p <- create @WithRef
       a <- self
-      p ! RefMsg a
+      p ! AnswerableMessage a
   startState = OtherActor
 
 -- | Actor that handles references to other Actors
 class Response a where
   toResponse :: String -> a
-data RefMsg = forall a. (Actor a, Response (Message a)) => RefMsg
-    { ref :: Path a }
-deriving instance Show RefMsg
-deriving instance Typeable RefMsg
-instance Eq RefMsg where
-    (RefMsg a) == (RefMsg b) = a =~= b
 
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
-    type Message WithRef = RefMsg
-    behavior (RefMsg a) = do
-        a ! toResponse "hello"
+    type Message WithRef = AnswerableMessage String
+    behavior = answer "hello"
     startState = WithRef
