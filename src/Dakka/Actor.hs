@@ -21,7 +21,7 @@
 module Dakka.Actor where
 
 import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable, cast )
+import "base" Data.Typeable ( Typeable, cast, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
@@ -80,7 +80,11 @@ data SystemMessage
         { to  :: ActorRef p
         , msg :: Message (Tip p)
         }
-deriving instance Show SystemMessage
+
+instance Show SystemMessage where
+    showsPrec i (Create p)    str = "Create " ++ show (typeRep p) ++ str
+    showsPrec i (Send to msg) str = "Send {to = " ++ show to ++ ", msg = " ++ show msg ++ "}" ++ st ++ str
+
 instance Eq SystemMessage where
     (Create a) == (Create b) = a =~= b
     (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~= bm
