@@ -91,7 +91,7 @@ instance Show a => Show (Path a) where
     showsPrec = liftShowsPrec showsPrec showList
 
 instance Show1 Path where
-    liftShowsPrec s _ i p str = str ++ '/' : foldl showSegment "" p
+    liftShowsPrec s _ i p str = '/' : foldl showSegment "" p ++ str
       where showSegment str e = str ++ s (i-1) e "" ++ "/"
 
 instance Eq1 Path where
@@ -129,7 +129,7 @@ instance Convertible (IndexedPath p) (Path (TypeRep, Word)) where
 
 instance Show (IndexedPath p) where
     showsPrec i = liftShowsPrec showDemoted undefined i . demotePath
-      where showDemoted _ (t, i) = (++ show t ++ '!' : show i)
+      where showDemoted _ (t, i) str = str ++ show t ++ '!' : show i
 
 -- | Represents a Segement of an 'IndexedPath'.
 newtype IndexedRef a

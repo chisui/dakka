@@ -96,8 +96,7 @@ instance (Tip p ~ a, Actor a) => ActorContext p a (MockActorContext p a) where
 
     create' a = do
         tell [Create a]
-        me <- self
-        return (me :// 0)
+        (:// 0) <$> self
 
     p ! m = tell [Send p m]
 
