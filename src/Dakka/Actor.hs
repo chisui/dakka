@@ -28,17 +28,17 @@ import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 
+import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
 import "mtl" Control.Monad.State.Class ( MonadState, modify )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Constraints
+import Dakka.Type.Path
+import Dakka.Type.Tree
 import Dakka.Convert
 
 
--- | A path of an Actor inside the Actor system.
--- FIXME This is a Bullshit implementation
-newtype Path a = Path Word
-    deriving (Show, Eq, Typeable)
+type ActorRef p = IndexedPath p
 
 -- | Execution Context of an 'Actor'.
 -- Has to provide ways to:
@@ -49,24 +49,24 @@ newtype Path a = Path Word
 --
 --     * create new actors.
 -- 
-class (Actor a, MonadState a m) => ActorContext (a :: *) (m :: * -> *) | m -> a where
+class (Actor a, MonadState a m) => ActorContext (p :: Path *) (a :: *) (m :: * -> *) | m -> a, m -> p where
     {-# MINIMAL self, create', (send | (!)) #-}
 
     -- | reference to the currently running 'Actor'
-    self :: m (Path a)
+    self :: m (ActorRef p)
 
     -- | Creates a new `Actor` of type 'b' with provided start state
-    create' :: (Actor b, b :∈ Creates a) => Proxy b -> m (Path b)
+    create' :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef (p ':/ b))
 
     -- | Send a message to another actor
-    send :: Actor b => Path b -> Message b -> m ()
+    send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
     send = (!)
 
     -- | Alias for 'send' to enable akka style inline send.
-    (!) :: Actor b => Path b -> Message b -> m ()
+    (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
     (!) = send
 
-create :: (Actor b, Actor a, ActorContext a m, b :∈ Creates a) => m (Path b)
+create :: (Actor b, Actor a, ActorContext p a m, b :∈ Creates a) => m (ActorRef (p ':/ b))
 create = create' Proxy
 
 -- ---------------- --
@@ -76,33 +76,34 @@ create = create' Proxy
 -- | Encapsulates an interaction of a behavior with the context
 data SystemMessage
     = forall a. Actor a => Create (Proxy a)
-    | forall a. Actor a => Send
-        { to  :: Path a
-        , msg :: Message a
+    | forall p. Actor (Tip p) => Send
+        { to  :: ActorRef p
+        , msg :: Message (Tip p)
         }
 deriving instance Show SystemMessage
 instance Eq SystemMessage where
     (Create a) == (Create b) = a =~= b
-    (Send at am) == (Send bt bm) = at =~= bt && am =~= bm
+    (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~= bm
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
-newtype MockActorContext a v = MockActorContext
-    (StateT a (Writer [SystemMessage]) v)
-  deriving (Functor, Applicative, Monad, MonadState a, MonadWriter [SystemMessage])
+newtype MockActorContext p a v = MockActorContext
+    (ReaderT (ActorRef p) (StateT a (Writer [SystemMessage])) v)
+  deriving (Functor, Applicative, Monad, MonadState a, MonadWriter [SystemMessage], MonadReader (ActorRef p))
 
-instance Actor a => ActorContext a (MockActorContext a) where
+instance (Tip p ~ a, Actor a) => ActorContext p a (MockActorContext p a) where
 
-    self = return $ Path 0
+    self = ask
 
     create' a = do
         tell [Create a]
-        return $ Path 0
-    
+        me <- self
+        return (me :// 0)
+
     p ! m = tell [Send p m]
 
 -- | Execute a 'Behavior' in a 'MockActorContext'.
-execMock :: MockActorContext a b -> a -> (a, [SystemMessage])
-execMock (MockActorContext ctx) = runWriter . execStateT ctx
+execMock :: ActorRef p -> MockActorContext p a b -> a -> (a, [SystemMessage])
+execMock ar (MockActorContext ctx) = runWriter . execStateT (runReaderT ctx ar)
 
 -- ------- --
 --  Actor  --
@@ -110,7 +111,7 @@ execMock (MockActorContext ctx) = runWriter . execStateT ctx
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type Behavior a = forall m. (ActorContext a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
+type Behavior a = forall p m. (Tip p ~ a, ActorContext p a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
 
 
 class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
@@ -142,16 +143,16 @@ type LeafActor a = (Actor a, Creates a ~ '[])
 behaviorOf :: Proxy a -> Behavior a 
 behaviorOf = const behavior
 
-data AnswerableMessage r = forall a. (Actor a, Convertible r (Message a)) => AnswerableMessage
-    { askerRef :: Path a
+data AnswerableMessage r = forall p. (Actor (Tip p), Convertible r (Message (Tip p))) => AnswerableMessage
+    { askerRef :: ActorRef p
     }
 deriving instance Typeable r => Typeable (AnswerableMessage r)
 instance Eq (AnswerableMessage r) where
-    (AnswerableMessage a) == (AnswerableMessage b) = a =~= b
+    (AnswerableMessage a) == (AnswerableMessage b) = demotePath a == demotePath b
 instance Show (AnswerableMessage r) where
     show (AnswerableMessage a) = "AnswerableMessage " ++ show a
 
-answer :: (Actor a, ActorContext a m) => r -> AnswerableMessage r -> m ()
+answer :: (Actor a, ActorContext p a m) => r -> AnswerableMessage r -> m ()
 answer r (AnswerableMessage ref) = ref ! convert r
 
 -- -------- --

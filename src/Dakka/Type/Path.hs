@@ -30,6 +30,7 @@
 -- | Typesafe Paths with type unsafe indices.
 module Dakka.Type.Path
     ( Path(..)
+    , Tip
     , IndexedPath(..)
     , (</>)
     , demotePath
@@ -62,6 +63,9 @@ data Path a
     | Path a :/ a -- ^ a sub path
   deriving (Eq, Ord, Typeable, Generic, Functor, Foldable, Traversable)
 infixl 5 :/
+
+type family Tip (p :: Path k) :: k where
+    Tip (as ':/ a) = a
 
 instance Semigroup (Path a) where
     p <> Root = p
