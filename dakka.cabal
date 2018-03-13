@@ -17,7 +17,6 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Dakka.Actor  
-                     , Dakka.MixedSingleton 
                      , Dakka.Type.Path
                      , Dakka.Type.Tree
                      , Dakka.MockActorContext
