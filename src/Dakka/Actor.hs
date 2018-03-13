@@ -58,7 +58,10 @@ class ( Actor a
            (p :: Path *)
            (a :: *)
            (m :: * -> *)
-      | m -> a, m -> p, m -> t where
+      | m -> t
+      , m -> p
+      , m -> a
+    where
       {-# MINIMAL self, create', (send | (!)) #-}
 
       -- | reference to the currently running 'Actor'

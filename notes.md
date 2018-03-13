@@ -180,7 +180,99 @@ I will investigate how the `Eff` approache may be used in the current implementa
 
 ## Combining Tree representation with actors
 
-We want to be able to have the complete tree of the actorsystem be represented in a type. Each reference that is used to send messages to actors should be represent a path in that tree. For this the actor or the ActorContext to be more precise has to have some knowledge about the actors position in the Tree. We also would like to be able to reuse Actors at multiple Position in the Tree and maybe also in different Actor systems alltogether. It makes the most sense to only expose the bare minimum of Information about the tree to the actor to ensure decoupling. One approach is to add another type variable that represents the Tree. This variable is not bound specifically by the Actor of ActorContext but the Actor may add Constraints to this variable that either provide the Actor with specific knouwledge about it's ActorSystem and it's position inside of it or constrain where inside the Tree The actor may Occure.
+We want to be able to have the complete tree of the actorsystem be represented in a type. Each reference that is used to send messages to actors should be represent a path in that tree. For this the actor or the ActorContext to be more precise has to have some knowledge about the actors position in the Tree. We also would like to be able to reuse Actors at multiple Position in the Tree and maybe also in different Actor systems alltogether. It makes the most sense to only expose the bare minimum of Information about the tree to the actor to ensure decoupling. One approach is to add another type variable that represents the Tree. This variable is not bound specifically by the Actor of ActorContext but the Actor may add Constraints to this variable that either provide the Actor with specific knowledge about it's ActorSystem and it's position inside of it or constrain where inside the Tree The actor may Occure.
 
 One such Constraint to the tree already is in present with the `Creates` typefamily. In fact just by itself this typefamily defines the Tree of an Actor system. But it only provides downward information. If an actor needs upward information of it's parents that can't be expressed in this way.
+
+The main part that has to change is how actors are referenced. Currently This is done my a placeholder type that doesn't provide a meaningful way of actually referencing an actor:
+
+```haskell
+data ActorRef a = ActorRef Word
+```
+
+We will improve this in the following two steps.
+
+### Make Actor Ref a Path
+
+We want `ActorRef` to be a path where path information is present in it's type. For this we create a new datatype `Path`:
+
+```haskell
+data Path a
+    = Root
+    | Path a :/ a
+```
+
+`Path` is essentially a list, with the important destinction that the constructor is left recursive. This makes pushing and popping of path segemnts easier. This will come in handy when we promote `Path` to a kind.
+
+#### Promoting Path
+
+Now we have a type that represents paths. But the Strukture of this type is not present in it's type. The fastest way would be to use the `singletons` library to promote `Path` to a singleton type. Actors may create multiple children of the same type at runtime. So it doesn't make sense to represent that information in the type. That means that our `ActorRef` type can not be a simple singleton type. We need to embedd additional runtime information.
+
+Rathern than relying on `singletons` to promote our type we have to do it manually, but we can use the same approach as the library:
+
+```haskell
+data IndexedPath (p :: Path *) where
+    IRoot :: IndexedPath 'Root
+    (://) :: IndexedPath as -> Word -> IndexedPath (as ':/ a)
+```
+
+`IndexedPath` is a `GADT` with one typevariable thats kind is `Path *`. Here we promoted `Path` to a kind. Now we can only create values of `IndexedPath` that contain their structure in their type.
+
+Additionally there are utillity functions to for `IndexedPath`. In combination they allow path creation like this:
+
+```haskell
+>>> :t Proxy @Int </> ref @String 2
+Proxy @Int </> ref @String 2
+  :: IndexedPath ('Root ':/ Int ':/ [Char])
+```
+
+#### Replacing ActorRef
+
+We change `data ActorRef a = ActorRef Word` to `type ActorRef a = IndexedPath a`. By doing this we change the meaning of `a` though. Before it represented the refered actor itself. Now it represents a path where the last segemnt is the refered actor. That means we need a way to retrieve the actor type `a :: *` from a path `p :: Path *`. This is easily achieved with a closed typefamily:
+
+```haskell
+type family Tip (p :: Path k) k where
+    Tip (as ':/ a) = a
+```
+
+This typefamily is intentially partial so that `'Root` does not have a representation.
+
+`send` can now have this signature:
+
+```haskell
+send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
+```
+
+`create` though, can not be expressed without further changes. Before the signature of `create` was:
+
+```haskell
+create :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef b)
+```
+
+We can't simply use the same trick as with `send`.
+
+```haskell
+create :: (Actor (Tip b), (Tip b) :∈ Creates a) => Proxy (Tip b) -> m (ActorRef b)
+```
+
+This is no valid solution for our problem. Firstly because it wont compile. `Tip` is not injective so `b` can not be infered by `Tip b`, which is absolutely ok. Beeing able to do so would mean that we could infere any path from one of it's segments. That doesn't make any sense.
+Secondly we don't constrain the path in any way. Even if we could get this to compile we would be able to create actors at an arbitrary position in the actor system. That too doesn't make any sense.
+
+The solution is to give the `ActorContext` an additional type variable `p :: Path *` that holds the actors path. To ensure that `p` always points to the correct actor we ad the constraint `a ~ Tip p` to `ActorContext`.
+
+This way we also ensure that an actor doesn't know too much about it's position in the actor system. It only knows about the subtree beneath itself. The path up to it is completly opaque. 
+
+Now `create` can be expressed:
+
+```haskell
+create :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef (p ':/ b))
+```
+
+Notice that the type of the returned actor reference now describes the current actors path followed by the type of the created actor.
+
+### Add information about the rest of the actor system
+
+With `ActorRef` now representing a path we made the creation of actors a little bit more declarative. The `ActorRef` that `create` now returns reflects that the last two segemnts of the path represent the current followed by the created actor. Without any information about the rest of the system though we can not do anything with that information. Furthermore it is possible to send messages to arbitrary paths as long as the tip of that path is an actor that acceps the messages type.
+
+We would like to constrain `ActorRefs` even further such that they have to be internally consistent. 
 
