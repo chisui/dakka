@@ -87,24 +87,30 @@ create = create' Proxy
 type Behavior a = forall t p m. (Tip p ~ a, ActorContext t p a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
 
 
-class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
-    -- | List of all types of actors that this actor may create in its lifetime.
-    type Creates a :: [*]
-    type Creates a = '[]
+class ( RichData a
+      , RichData (Message a)
+      , Actor `ImplementedByAll` Creates a
+      ) => Actor
+             (a :: *)
+    where
+      
+      -- | List of all types of actors that this actor may create in its lifetime.
+      type Creates a :: [*]
+      type Creates a = '[]
   
-    -- | Type of Message this Actor may recieve
-    type Message a :: *
+      -- | Type of Message this Actor may recieve
+      type Message a :: *
 
-    -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
-    type Capabillities a :: [(* -> *) -> Constraint]
-    type Capabillities a = '[]
+      -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
+      type Capabillities a :: [(* -> *) -> Constraint]
+      type Capabillities a = '[]
 
-    -- | This Actors behavior
-    behavior :: Behavior a
+      -- | This Actors behavior
+      behavior :: Behavior a
 
-    startState :: a
-    default startState :: Monoid a => a
-    startState = mempty
+      startState :: a
+      default startState :: Monoid a => a
+      startState = mempty
 
 -- | A pure 'Actor' is one that has no additional Capabillities besides what a 
 -- 'ActorContext' provides.
@@ -113,20 +119,8 @@ type PureActor a = (Actor a, Capabillities a ~ '[])
 -- | A leaf 'Actor' is one that doesn't create any children.
 type LeafActor a = (Actor a, Creates a ~ '[])
 
-behaviorOf :: Proxy a -> Behavior a 
+behaviorOf :: proxy a -> Behavior a 
 behaviorOf = const behavior
-
-data AnswerableMessage r = forall p. (Actor (Tip p), Convertible r (Message (Tip p))) => AnswerableMessage
-    { askerRef :: ActorRef p
-    }
-deriving instance Typeable r => Typeable (AnswerableMessage r)
-instance Eq (AnswerableMessage r) where
-    (AnswerableMessage a) == (AnswerableMessage b) = demotePath a == demotePath b
-instance Show (AnswerableMessage r) where
-    show (AnswerableMessage a) = "AnswerableMessage " ++ show a
-
-answer :: (Actor a, ActorContext t p a m) => r -> AnswerableMessage r -> m ()
-answer r (AnswerableMessage ref) = ref ! convert r
 
 -- ------------- --
 --  ActorSystem  --
@@ -142,46 +136,3 @@ type family ActorSystemSubTrees (r :: [*]) :: [Tree *] where
 type family ActorSystemSubTree (a :: *) :: Tree * where
     ActorSystemSubTree a = 'Node a (ActorSystemSubTrees (Creates a))  
 
--- -------- --
---   Test   --
--- -------- --
-
--- | Actor with all bells and whistles.
-newtype TestActor = TestActor
-    { i :: Int
-    } deriving (Show, Eq, Typeable)
-instance Semigroup TestActor where
-    (TestActor i) <> (TestActor j) = TestActor (i + j)
-instance Monoid TestActor where
-    mempty = TestActor 0
-instance Actor TestActor where
-  type Message TestActor = String
-  type Creates TestActor = '[OtherActor]
-  type Capabillities TestActor = '[MonadIO]
-  behavior m = do
-      modify (TestActor . succ . i)
-      liftIO $ putStrLn m
-      p <- create @OtherActor
-      p ! Msg m
-
--- | Actor with custom message type.
--- This one also communicates with another actor and expects a response.
-newtype Msg = Msg String deriving (Show, Eq, Typeable)
-instance Convertible String Msg where
-    convert = Msg
-data OtherActor = OtherActor deriving (Show, Eq, Typeable)
-instance Actor OtherActor where
-  type Message OtherActor = Msg
-  type Creates OtherActor = '[WithRef]
-  behavior m = do
-      p <- create @WithRef
-      a <- self
-      p ! AnswerableMessage a
-  startState = OtherActor
-
--- | Actor that handles references to other Actors
-data WithRef = WithRef deriving (Show, Eq, Typeable)
-instance Actor WithRef where
-    type Message WithRef = AnswerableMessage String
-    behavior = answer "hello"
-    startState = WithRef
