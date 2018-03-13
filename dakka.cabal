@@ -19,7 +19,8 @@ library
   exposed-modules:     Dakka.Actor  
                      , Dakka.MixedSingleton 
                      , Dakka.Type.Path
-                     , Dakka.Type.Tree 
+                     , Dakka.Type.Tree
+                     , Dakka.MockActorContext
                      , Dakka.Convert
   other-modules:       Dakka.Constraints
   build-depends:       base
