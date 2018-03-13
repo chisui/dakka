@@ -59,21 +59,21 @@ class ( Actor a
            (a :: *)
            (m :: * -> *)
       | m -> a, m -> p, m -> t where
-    {-# MINIMAL self, create', (send | (!)) #-}
+      {-# MINIMAL self, create', (send | (!)) #-}
 
-    -- | reference to the currently running 'Actor'
-    self :: m (ActorRef p)
+      -- | reference to the currently running 'Actor'
+      self :: m (ActorRef p)
 
-    -- | Creates a new `Actor` of type 'b' with provided start state
-    create' :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef (p ':/ b))
+      -- | Creates a new `Actor` of type 'b' with provided start state
+      create' :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef (p ':/ b))
 
-    -- | Send a message to another actor
-    send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
-    send = (!)
+      -- | Send a message to another actor
+      send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
+      send = (!)
 
-    -- | Alias for 'send' to enable akka style inline send.
-    (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
-    (!) = send
+      -- | Alias for 'send' to enable akka style inline send.
+      (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
+      (!) = send
 
 create :: (Actor b, Actor a, ActorContext t p a m, b :∈ Creates a) => m (ActorRef (p ':/ b))
 create = create' Proxy
