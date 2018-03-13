@@ -12,6 +12,7 @@
            , DataKinds
            , PolyKinds
            , InstanceSigs
+           , TypeApplications
            , TypeInType
            , FlexibleContexts
            , StandaloneDeriving

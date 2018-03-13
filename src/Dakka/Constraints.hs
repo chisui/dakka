@@ -6,6 +6,7 @@
            , TypeOperators
            , PackageImports
            , UndecidableInstances
+           , TypeApplications
            , RankNTypes
            , StandaloneDeriving
            , ExistentialQuantification

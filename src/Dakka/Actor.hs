@@ -23,6 +23,7 @@ module Dakka.Actor where
 import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, cast, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
+import "containers" Data.Tree ( Tree(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
@@ -49,7 +50,15 @@ type ActorRef p = IndexedPath p
 --
 --     * create new actors.
 -- 
-class (Actor a, MonadState a m) => ActorContext (p :: Path *) (a :: *) (m :: * -> *) | m -> a, m -> p where
+class ( Actor a
+      , MonadState a m
+      , a ~ Select p t
+      ) => ActorContext 
+           (t :: Tree *)
+           (p :: Path *)
+           (a :: *)
+           (m :: * -> *)
+      | m -> a, m -> p, m -> t where
     {-# MINIMAL self, create', (send | (!)) #-}
 
     -- | reference to the currently running 'Actor'
@@ -66,7 +75,7 @@ class (Actor a, MonadState a m) => ActorContext (p :: Path *) (a :: *) (m :: * -
     (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
     (!) = send
 
-create :: (Actor b, Actor a, ActorContext p a m, b :∈ Creates a) => m (ActorRef (p ':/ b))
+create :: (Actor b, Actor a, ActorContext t p a m, b :∈ Creates a) => m (ActorRef (p ':/ b))
 create = create' Proxy
 
 -- ---------------- --
@@ -83,18 +92,18 @@ data SystemMessage
 
 instance Show SystemMessage where
     showsPrec i (Create p)    str = "Create " ++ show (typeRep p) ++ str
-    showsPrec i (Send to msg) str = "Send {to = " ++ show to ++ ", msg = " ++ show msg ++ "}" ++ st ++ str
+    showsPrec i (Send to msg) str = "Send {to = " ++ show to ++ ", msg = " ++ show msg ++ "}" ++ str
 
 instance Eq SystemMessage where
     (Create a) == (Create b) = a =~= b
     (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~= bm
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
-newtype MockActorContext p a v = MockActorContext
+newtype MockActorContext t p a v = MockActorContext
     (ReaderT (ActorRef p) (StateT a (Writer [SystemMessage])) v)
   deriving (Functor, Applicative, Monad, MonadState a, MonadWriter [SystemMessage], MonadReader (ActorRef p))
 
-instance (Tip p ~ a, Actor a) => ActorContext p a (MockActorContext p a) where
+instance (Actor a, a ~ Select p t, a ~ Tip p) => ActorContext t p a (MockActorContext t p a) where
 
     self = ask
 
@@ -105,7 +114,7 @@ instance (Tip p ~ a, Actor a) => ActorContext p a (MockActorContext p a) where
     p ! m = tell [Send p m]
 
 -- | Execute a 'Behavior' in a 'MockActorContext'.
-execMock :: ActorRef p -> MockActorContext p a b -> a -> (a, [SystemMessage])
+execMock :: forall t p a b. (a ~ Select p t) => ActorRef p -> MockActorContext t p a b -> a -> (a, [SystemMessage])
 execMock ar (MockActorContext ctx) = runWriter . execStateT (runReaderT ctx ar)
 
 -- ------- --
@@ -114,7 +123,7 @@ execMock ar (MockActorContext ctx) = runWriter . execStateT (runReaderT ctx ar)
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type Behavior a = forall p m. (Tip p ~ a, ActorContext p a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
+type Behavior a = forall t p m. (Tip p ~ a, ActorContext t p a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
 
 
 class (RichData a, RichData (Message a), Actor `ImplementedByAll` Creates a) => Actor (a :: *) where
@@ -155,8 +164,22 @@ instance Eq (AnswerableMessage r) where
 instance Show (AnswerableMessage r) where
     show (AnswerableMessage a) = "AnswerableMessage " ++ show a
 
-answer :: (Actor a, ActorContext p a m) => r -> AnswerableMessage r -> m ()
+answer :: (Actor a, ActorContext t p a m) => r -> AnswerableMessage r -> m ()
 answer r (AnswerableMessage ref) = ref ! convert r
+
+-- ------------- --
+--  ActorSystem  --
+-- ------------- --
+
+type family ActorSystemTree (r :: [*]) :: Tree * where
+    ActorSystemTree r = 'Node () (ActorSystemSubTrees r)
+
+type family ActorSystemSubTrees (r :: [*]) :: [Tree *] where
+    ActorSystemSubTrees '[]       = '[]
+    ActorSystemSubTrees (a ': as) = ActorSystemSubTree a ': ActorSystemSubTrees as
+
+type family ActorSystemSubTree (a :: *) :: Tree * where
+    ActorSystemSubTree a = 'Node a (ActorSystemSubTrees (Creates a))  
 
 -- -------- --
 --   Test   --
