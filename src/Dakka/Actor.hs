@@ -109,13 +109,17 @@ instance (Actor a, a ~ Select p t, a ~ Tip p) => ActorContext t p a (MockActorCo
 
     create' a = do
         tell [Create a]
-        (:// 0) <$> self
+        self <$/> a
 
     p ! m = tell [Send p m]
 
 -- | Execute a 'Behavior' in a 'MockActorContext'.
-execMock :: forall t p a b. (a ~ Select p t) => ActorRef p -> MockActorContext t p a b -> a -> (a, [SystemMessage])
+execMock :: forall t a p b. (a ~ Select p t) => ActorRef p -> MockActorContext t p a b -> a -> (a, [SystemMessage])
 execMock ar (MockActorContext ctx) = runWriter . execStateT (runReaderT ctx ar)
+
+
+execMock' :: forall t a p b. (a ~ Select p t, Actor a) => ActorRef p -> MockActorContext t p a b -> (a, [SystemMessage])
+execMock' ar ctx = execMock ar ctx startState
 
 -- ------- --
 --  Actor  --

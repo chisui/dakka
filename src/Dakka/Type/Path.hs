@@ -33,6 +33,7 @@ module Dakka.Type.Path
     , Tip
     , IndexedPath(..)
     , (</>)
+    , (<$/>)
     , demotePath
     , IsPath(..)
     , CanAppend(..)
@@ -151,8 +152,16 @@ class CanAppend as a p | as a -> p where
 as </> a = toPath as `pappend` a
 infixl 5 </>
 
+(<$/>) :: (IsPath a p, CanAppend p b c, Functor f) => f a -> b -> f c
+as <$/> a = (</> a) <$> as
+infixl 5 <$/>
+
+
 instance IsPath (Path a) (Path a) 
 instance IsPath (IndexedPath p) (IndexedPath p) 
+
+instance (CanAppend as a p, Functor f) => CanAppend (f as) a (f p) where
+    pappend as a = (`pappend` a) <$> as
 
 instance Typeable a => IsPath (IndexedRef (a :: *)) (IndexedPath ('Root ':/ a)) where
     toPath (IR i) = IRoot :// i
