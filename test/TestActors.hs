@@ -6,6 +6,7 @@
            , TypeApplications
            , TypeFamilies
            , TypeSynonymInstances
+           , LambdaCase
 #-}
 module TestActors where
 
@@ -14,9 +15,10 @@ import "base" Data.Typeable
 import "dakka" Dakka.Actor
 import "dakka" Dakka.AnswerableMessage
 import "dakka" Dakka.Convert
+import "dakka" Dakka.Type.Path
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
-import "mtl" Control.Monad.State.Class ( modify )
+import "mtl" Control.Monad.State.Class ( modify, get, put )
 
 
 -- | Actor with all bells and whistles.
@@ -34,11 +36,57 @@ instance Actor TestActor where
     type Message TestActor = String
     type Creates TestActor = '[OtherActor]
     type Capabillities TestActor = '[MonadIO]
+    
     behavior m = do
+
+        -- change interal actor state through MonadState
         modify (TestActor . succ . i)
+
+        -- Since Capabillities contain 'MonadIO' we can use 'liftIO'.
+        -- The Context has to also implement 'MonadIO' to run this behavior
         liftIO $ putStrLn m
-        p <- create @OtherActor
-        p ! Msg m
+
+        -- create a new Actor and send a message to it.
+        -- You can only create Actors that are in 'Creates'.
+        -- You can also only send messages that the actor can handle to them.
+        create @OtherActor >>= (! (Msg m))
+
+        -- Create an Actor reference from a path.
+        -- The path has to be consistent.
+        wr <- self <$/> Proxy @OtherActor <$/> Proxy @WithRef
+
+        -- Send an AnswerableMessage to the refered actor.
+        -- The message contains a reference to this actor.
+        AnswerableMessage <$> self >>= (send wr)
+
+
+-- | Simple Finite state machine example.
+-- Shamelessly ripped from https://en.wikipedia.org/wiki/Finite-state_machine#Example:_coin-operated_turnstile
+
+-- | Turnstile state
+data Turnstile
+    = Locked
+    | Unlocked
+  deriving (Show, Eq, Typeable)
+
+-- | Turnstile message
+data TurnstileInput
+    = Coin
+    | Push
+  deriving (Show, Eq, Typeable)
+
+instance Actor Turnstile where
+    type Message Turnstile = TurnstileInput
+    startState = Locked
+
+    -- Unlock on Coin. Lock un Push
+    behavior m = get >>= \case
+        Locked -> case m of
+                    Coin -> put Unlocked
+                    Push -> return ()
+        Unlocked -> case m of
+                        Coin -> return ()
+                        Push -> put Locked
 
 
 -- | Actor with custom message type.

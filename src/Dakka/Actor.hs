@@ -126,6 +126,8 @@ behaviorOf = const behavior
 --  ActorSystem  --
 -- ------------- --
 
+-- | Create an actor system tree from a list of base actors.
+-- The Tree is constructed by creating 
 type family ActorSystemTree (r :: [*]) :: Tree * where
     ActorSystemTree r = 'Node () (ActorSystemSubTrees r)
 
