@@ -2,12 +2,12 @@
 
 let
   inherit (nixpkgs) pkgs;
-  f = { mkDerivation, base, singletons, mtl, stdenv, transformers, containers, contravariant }:
+  f = { mkDerivation, base, mtl, stdenv, transformers, containers, contravariant }:
       mkDerivation {
         pname = "dakka";
         version = "0.0.1";
         src = ./.;
-        libraryHaskellDepends = [ base singletons transformers mtl contravariant containers ];
+        libraryHaskellDepends = [ base transformers mtl contravariant containers ];
         description = "dakka";
         license = stdenv.lib.licenses.mit;
       };

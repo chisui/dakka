@@ -32,13 +32,9 @@ module Dakka.Type.Path
     ( Path(..)
     , Tip
     , IndexedPath(..)
-    , (</>)
-    , (<$/>)
-    , demotePath
-    , IsPath(..)
-    , CanAppend(..)
-    , IndexedRef
+    , IndexedRef(..)
     , ref
+    , AllSegmentsImplement
     ) where
 
 import           "base" Data.Functor.Classes 
@@ -60,33 +56,34 @@ import           Dakka.Convert
 -- | A Path of type 'a'.
 -- Used as promoted type in @IndexedPath@.
 data Path a
-    = Root -- ^ the root of a path
+    = Root a -- ^ the root of a path
     | Path a :/ a -- ^ a sub path
   deriving (Eq, Ord, Typeable, Generic, Functor, Foldable, Traversable)
 infixl 5 :/
 
 type family Tip (p :: Path k) :: k where
+    Tip ('Root a)  = a
     Tip (as ':/ a) = a
 
+type family Pop (p :: Path k) :: Path k where
+    Pop (as ':/ a) = as
+
 instance Semigroup (Path a) where
-    p <> Root = p
+    p <> (Root a)  = p :/ a
     p <> (p' :/ a) = (p <> p') :/ a
 
-instance Monoid (Path a) where
-    mempty = Root
-
 instance Applicative Path where
-    pure = (Root :/)
+    pure = Root
     (<*>) = ap
 
 instance Monad Path where
-    Root      >>= _ = Root
+    (Root a)  >>= f = f a
     (as :/ a) >>= f = (as >>= f) <> f a
 
 instance IsList (Path a) where
     type Item (Path a) = a
     toList = F.toList
-    fromList = mconcat . fmap pure
+    fromList (a:as) = F.foldr' (<>) (Root a) $ fmap pure as
 
 instance Show a => Show (Path a) where
     showsPrec = liftShowsPrec showsPrec showList
@@ -105,30 +102,34 @@ instance Ord1 Path where
 -- | A typesafe path with indices.
 data IndexedPath (p :: Path *) where
     -- | the root of a path.
-    IRoot :: IndexedPath 'Root
+    IRoot :: IndexedPath ('Root a)
     -- | a sub path.
     -- Since 'a' has to be 'Typeable' we don't need to story anything and 'a' can be a phantom type variable.
-    (://) :: Typeable a => IndexedPath as -> Word -> IndexedPath (as ':/ a)
+    (://) :: IndexedPath as -> Word -> IndexedPath (as ':/ a)
 infixl 5 ://
 deriving instance Typeable (IndexedPath p)
 
+type family AllSegmentsImplement (p :: Path k) (c :: k -> Constraint) :: Constraint where
+    AllSegmentsImplement ('Root a)  c = (c a)
+    AllSegmentsImplement (as ':/ a) c = (c a, AllSegmentsImplement as c)
+
 -- | Retrieve the type of the tip of a path.
-typeOfTip :: forall a as. Typeable a => IndexedPath (as ':/ a) -> TypeRep
-typeOfTip _ = typeOf @a undefined
+typeOfTip :: forall p. Typeable (Tip p) => IndexedPath p -> TypeRep
+typeOfTip _ = typeOf @(Tip p) undefined
 
 -- | Retrieve the demoted tip.
-demoteTip :: IndexedPath (as ':/ a) -> (TypeRep, Word)
+demoteTip :: Typeable (Tip p) => IndexedPath p -> (TypeRep, Word)
 demoteTip p@(_ :// i) = (typeOfTip p, i)
 
 -- | Demote a path.
-demotePath :: IndexedPath p -> Path (TypeRep, Word)
-demotePath IRoot = Root
+demotePath :: p `AllSegmentsImplement` Typeable => IndexedPath p -> Path (TypeRep, Word)
+demotePath p@IRoot = Root $ demoteTip p
 demotePath p@(p' :// _) = demotePath p' :/ demoteTip p
 
-instance Convertible (IndexedPath p) (Path (TypeRep, Word)) where
+instance (p `AllSegmentsImplement` Typeable) => Convertible (IndexedPath p) (Path (TypeRep, Word)) where
     convert = demotePath
 
-instance Show (IndexedPath p) where
+instance (p `AllSegmentsImplement` Typeable) => Show (IndexedPath p) where
     showsPrec i = liftShowsPrec showDemoted undefined i . demotePath
       where showDemoted _ (t, i) str = str ++ show t ++ '!' : show i
 
@@ -140,39 +141,3 @@ newtype IndexedRef a
 ref :: Typeable a => Word -> IndexedRef a
 ref = IR
 
-class IsPath a p | a -> p where
-    toPath :: a -> p
-    default toPath :: (a ~ p) => a -> p
-    toPath = id
-
-class CanAppend as a p | as a -> p where
-    pappend :: as -> a -> p 
-
-(</>) :: (IsPath a p, CanAppend p b c) => a -> b -> c 
-as </> a = toPath as `pappend` a
-infixl 5 </>
-
-(<$/>) :: (IsPath a p, CanAppend p b c, Functor f) => f a -> b -> f c
-as <$/> a = (</> a) <$> as
-infixl 5 <$/>
-
-
-instance IsPath (Path a) (Path a) 
-instance IsPath (IndexedPath p) (IndexedPath p) 
-
-instance (CanAppend as a p, Functor f) => CanAppend (f as) a (f p) where
-    pappend as a = (`pappend` a) <$> as
-
-instance Typeable a => IsPath (IndexedRef (a :: *)) (IndexedPath ('Root ':/ a)) where
-    toPath (IR i) = IRoot :// i
-instance Typeable a => IsPath (Proxy a) (IndexedPath ('Root ':/ a)) where
-    toPath _ = IRoot :// 0
-
-instance Typeable a => CanAppend (IndexedPath as) (IndexedRef (a :: *)) (IndexedPath (as ':/ a)) where
-    pappend p (IR i) = p :// i
-
-instance Typeable a => CanAppend (IndexedPath as) (Proxy (a :: *)) (IndexedPath (as ':/ a)) where
-    pappend p _ = p :// 0
-
-instance CanAppend (Path a) a (Path a) where
-    pappend = (:/)

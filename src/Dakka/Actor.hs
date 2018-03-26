@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts
            , FlexibleInstances
+           , GADTs
            , TypeFamilies
            , TypeApplications
            , DefaultSignatures
@@ -14,6 +15,8 @@
            , TypeOperators
            , ConstraintKinds
            , PolyKinds
+           , ScopedTypeVariables
+           , InstanceSigs
            , RankNTypes
            , UndecidableInstances
            , UndecidableSuperClasses
@@ -21,7 +24,7 @@
 module Dakka.Actor where
 
 import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable, cast, typeRep )
+import "base" Data.Typeable ( Typeable, TypeRep, cast, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 import "containers" Data.Tree ( Tree(..) )
 
@@ -34,12 +37,51 @@ import "mtl" Control.Monad.State.Class ( MonadState, modify )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Constraints
-import Dakka.Type.Path
+import Dakka.Type.Path ( Path(..), Tip, IndexedRef(..) )
 import Dakka.Type.Tree
 import Dakka.Convert
 
+-- ---------- --
+--  ActorRef  --
+-- ---------- --
 
-type ActorRef p = IndexedPath p
+data ActorRef (p :: Path *) where
+    ARoot :: Actor a => ActorRef ('Root a)
+    (://) :: (a :∈ Creates (Tip as), Actor a) => ActorRef as -> Word -> ActorRef (as ':/ a)
+
+deriving instance Show (ActorRef p)
+deriving instance Eq (ActorRef p)
+deriving instance Typeable (ActorRef p)
+
+instance Convertible (ActorRef p) (Path (Word, TypeRep)) where
+    convert :: forall p. (ActorRef p) -> (Path (Word, TypeRep)) 
+    convert ARoot = Root (0, typeRep (Proxy @(Tip p)))
+    convert (as :// a) = convert as :/ (a, typeRep (Proxy @(Tip p)))
+
+type family ConsistentActorPath (p :: Path *) :: Constraint where
+    ConsistentActorPath ('Root a)  = (Actor a)
+    ConsistentActorPath (as ':/ a) = (a :∈ Creates (Tip as), ConsistentActorPath as)
+
+(<$/>) :: ( Functor f
+          , Actor a
+          , ConsistentActorPath (as ':/ a)
+          , PathSegment seg
+          ) => f (ActorRef as) -> seg a -> f (ActorRef (as ':/ a))
+f <$/> a = (</> a) <$> f
+         
+class PathSegment seg where
+    (</>) :: ( ConsistentActorPath (as ':/ a)
+             , Actor a
+             ) => ActorRef as -> seg a -> ActorRef (as ':/ a)
+
+instance PathSegment Proxy where
+    ref </> _ = ref </> IR 0
+instance PathSegment IndexedRef where
+    ref </> (IR i) = ref :// i
+
+-- -------------- --
+--  ActorContext  --
+-- -------------- --
 
 -- | Execution Context of an 'Actor'.
 -- Has to provide ways to:
@@ -50,17 +92,12 @@ type ActorRef p = IndexedPath p
 --
 --     * create new actors.
 -- 
-class ( Actor a
-      , MonadState a m
-      , a ~ Select p t
+class ( ConsistentActorPath p
+      , MonadState (Tip p) m
       ) => ActorContext 
-           (t :: Tree *)
            (p :: Path *)
-           (a :: *)
            (m :: * -> *)
-      | m -> t
-      , m -> p
-      , m -> a
+      | m -> p
     where
       {-# MINIMAL self, create', (send | (!)) #-}
 
@@ -68,17 +105,17 @@ class ( Actor a
       self :: m (ActorRef p)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
-      create' :: (Actor b, b :∈ Creates a) => Proxy b -> m (ActorRef (p ':/ b))
+      create' :: (Actor b, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => Proxy b -> m (ActorRef (p ':/ b))
 
       -- | Send a message to another actor
-      send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
+      send :: Actor b => ActorRef (bs ':/ b) -> Message b -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
-      (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
+      (!) :: Actor b => ActorRef (bs ':/ b) -> Message b -> m () 
       (!) = send
 
-create :: (Actor b, Actor a, ActorContext t p a m, b :∈ Creates a) => m (ActorRef (p ':/ b))
+create :: (Actor b, ActorContext p m, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => m (ActorRef (p ':/ b))
 create = create' Proxy
 
 -- ------- --
@@ -87,7 +124,7 @@ create = create' Proxy
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type Behavior a = forall t p m. (Tip p ~ a, ActorContext t p a m, m `ImplementsAll` Capabillities a) => Message a -> m ()
+type Behavior a = forall p m. (Actor a, Tip p ~ a, ActorContext p m, m `ImplementsAll` Capabillities a) => Message a -> m ()
 
 
 class ( RichData a

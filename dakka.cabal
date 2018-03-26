@@ -28,7 +28,6 @@ library
                      , transformers
                      , contravariant
                      , mtl
-                     , singletons
   default-language:    Haskell2010
 
 Test-Suite dakka-test

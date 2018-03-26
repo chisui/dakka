@@ -48,46 +48,9 @@ data TypedForest (cs :: [* -> Constraint]) (f :: k -> *) (ts :: [Tree k]) where
     TNil  :: TypedForest cs f '[]
     TCons :: [TypedTree cs f a] -> TypedForest cs f as -> TypedForest cs f (a ': as)
 
--- -------------------- --
---  demoted Typed Tree  --
--- -------------------- --
-
-data HomogenousMultiTree (cs :: [* -> Constraint])
-    = (Typeable :∈ cs) => HMTNode (ConstrainedDynamic cs) [(TypeRep, [HomogenousMultiTree cs])]
-  deriving Typeable
-
-{-
-demoteTree :: (Typeable :∈ cs) => TypedTree cs f t -> HomogenousMultiTree cs
-demoteTree (TNode n f) = HMTNode (CDyn n) (demoteForest f)
-
-demoteForest :: (Typeable :∈ cs) => TypedForest cs f t -> [(TypeRep, [HomogenousMultiTree cs])]
-demoteForest TNil = []
-demoteForest (TCons l ls) = demoteHead l ++ demoteForest ls
-  where
-    demoteHead :: (Typeable :∈ cs) => [TypedTree cs f k] -> [(TypeRep, [HomogenousMultiTree cs])]
-    demoteHead [] = []
-    demoteHead l@((TNode n _) : _) = [(typeOf n, fmap demoteTree l)]
-
-instance (Typeable :∈ cs) => Convertible (TypedTree cs f t) (HomogenousMultiTree cs) where
-    convert = demoteTree
--}
-
 -- ----------- --
 --  Selecting  --
 -- ----------- --
-
-selectDemoted :: (Typeable :∈ cs) => Path (TypeRep, Word) -> HomogenousMultiTree cs -> Maybe (ConstrainedDynamic cs)
-selectDemoted p t = do
-    (HMTNode n _) <- selectDemotedSubTree p t
-    Just n
-
-selectDemotedSubTree :: (Typeable :∈ cs) => Path (TypeRep, Word) -> HomogenousMultiTree cs -> Maybe (HomogenousMultiTree cs)
-selectDemotedSubTree Root t = Just t
-selectDemotedSubTree (as :/ (t, n)) hmt = do
-    (HMTNode _ f) <- selectDemotedSubTree as hmt
-    l <- lookup t f
-    guard (genericLength l > n)
-    Just $ genericIndex l n
 
 type family Select (p :: Path k) (t :: Tree k) :: k where
     Select p t = Root (SelectSubTree p t)
@@ -96,7 +59,7 @@ type family Root (t :: Tree k) :: k where
 type family SubTrees (t :: Tree k) :: [Tree k] where
     SubTrees ('Node n f) = f
 type family SelectSubTree (p :: Path k) (t :: Tree k) :: Tree k where
-    SelectSubTree 'Root      t = t
+    SelectSubTree ('Root a)  t = Lookup a '[t]
     SelectSubTree (as ':/ a) t = Lookup a (SubTrees (SelectSubTree as t)) 
 type family Lookup (a :: k) (l :: [Tree k]) :: Tree k where
     Lookup a ('Node a f ': l) = 'Node a f
@@ -111,12 +74,15 @@ root (TNode n _) = n
 class SelectSubTreeC (p :: Path *) (t :: Tree *) where
     selectSubTree :: IndexedPath p -> TypedTree cs f t -> Maybe (TypedTree cs f (SelectSubTree p t))
 
-instance SelectSubTreeC 'Root t where
+instance ( Lookup a '[t] ~ SelectSubTree ('Root a) t 
+         , Lookup a '[t] ~ t
+         ) => SelectSubTreeC ('Root a) t where
     selectSubTree _ = Just
 
 instance ( SelectSubTreeC as t
          , LookupByRoot a (SubTrees (SelectSubTree as t))
          , SelectSubTree (as ':/ a) t ~ Lookup a (SubTrees (SelectSubTree as t))
+         , (as ':/ a) `AllSegmentsImplement` Typeable
          ) => SelectSubTreeC (as ':/ a) t where
     selectSubTree (as :// a) t = lookupByRoot (ref @a a) . subTrees =<< selectSubTree as t
 
