@@ -12,5 +12,5 @@ import "dakka" Dakka.Type.Path
 import TestActors
 
 
-main = print $ execMock' @(ActorSystemTree '[TestActor]) (Proxy @TestActor </> Proxy @OtherActor) (behavior $ Msg "hello")
+main = print $ execMock' (ARoot @TestActor </> Proxy @OtherActor) (behavior $ Msg "hello")
 

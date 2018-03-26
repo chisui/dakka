@@ -2,6 +2,7 @@
            , FlexibleInstances
            , GADTs
            , TypeFamilies
+           , TypeFamilyDependencies
            , TypeApplications
            , DefaultSignatures
            , MultiParamTypeClasses
@@ -26,6 +27,7 @@ module Dakka.Actor where
 import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, TypeRep, cast, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
+import "base" Data.Functor ( void )
 import "containers" Data.Tree ( Tree(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
@@ -33,7 +35,7 @@ import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 
 import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState, modify )
+import "mtl" Control.Monad.State.Class ( MonadState, modify, get )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Constraints
@@ -83,6 +85,8 @@ instance PathSegment IndexedRef where
 --  ActorContext  --
 -- -------------- --
 
+type ActorContextConstraints p m = (Actor (Tip p), ConsistentActorPath p, MonadState (Tip p) m)
+
 -- | Execution Context of an 'Actor'.
 -- Has to provide ways to:
 --
@@ -92,11 +96,10 @@ instance PathSegment IndexedRef where
 --
 --     * create new actors.
 -- 
-class ( ConsistentActorPath p
-      , MonadState (Tip p) m
-      ) => ActorContext 
-           (p :: Path *)
-           (m :: * -> *)
+class ActorContextConstraints p m 
+      => ActorContext 
+          (p :: Path *)
+          (m :: * -> *)
       | m -> p
     where
       {-# MINIMAL self, create', (send | (!)) #-}
@@ -108,11 +111,11 @@ class ( ConsistentActorPath p
       create' :: (Actor b, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => Proxy b -> m (ActorRef (p ':/ b))
 
       -- | Send a message to another actor
-      send :: Actor b => ActorRef (bs ':/ b) -> Message b -> m ()
+      send :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
-      (!) :: Actor b => ActorRef (bs ':/ b) -> Message b -> m () 
+      (!) :: Actor (Tip b) => ActorRef b -> Message (Tip b) -> m () 
       (!) = send
 
 create :: (Actor b, ActorContext p m, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => m (ActorRef (p ':/ b))
@@ -122,10 +125,19 @@ create = create' Proxy
 --  Actor  --
 -- ------- --
 
+
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type Behavior a = forall p m. (Actor a, Tip p ~ a, ActorContext p m, m `ImplementsAll` Capabillities a) => Message a -> m ()
+type Behavior a = Message a -> ActorAction a
 
+type ActorAction a = forall p m. (Actor a, Tip p ~ a, ActorContext p m, m `ImplementsAll` Capabillities a) => m () 
+
+noop :: Applicative f => f ()
+noop = pure ()
+
+data Signal (p :: Path *) where
+    Created :: ConsistentActorPath p => Signal p
+    Obit    :: ConsistentActorPath p => ActorRef (p ':/ c) -> Signal p
 
 class ( RichData a
       , RichData (Message a)
@@ -133,13 +145,15 @@ class ( RichData a
       ) => Actor
              (a :: *)
     where
-      
+      {-# MINIMAL behavior | handleMessage #-}
+
       -- | List of all types of actors that this actor may create in its lifetime.
       type Creates a :: [*]
       type Creates a = '[]
   
       -- | Type of Message this Actor may recieve
       type Message a :: *
+      type Message a = ()
 
       -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
       type Capabillities a :: [(* -> *) -> Constraint]
@@ -147,6 +161,13 @@ class ( RichData a
 
       -- | This Actors behavior
       behavior :: Behavior a
+      behavior = handleMessage . Right
+
+      handleMessage :: Either (Signal p) (Message a) -> ActorAction a 
+      handleMessage = either handleSignal behavior
+
+      handleSignal :: Signal p -> ActorAction a
+      handleSignal _ = noop
 
       startState :: a
       default startState :: Monoid a => a
@@ -161,6 +182,37 @@ type LeafActor a = (Actor a, Creates a ~ '[])
 
 behaviorOf :: proxy a -> Behavior a 
 behaviorOf = const behavior
+
+-- ----------- --
+--  RootActor  --
+-- ----------- --
+
+type family FromList (l :: [*]) = (a :: *) | a -> l where
+    FromList '[]       = ()
+    FromList (a ': as) = (a, FromList as)
+
+rootActor :: forall l. Proxy (FromList l)
+rootActor = Proxy
+
+instance (ToList l :⊆ ToList l, RootActor l) => Actor (Proxy (l :: *)) where
+    type Creates (Proxy l) = ToList l
+    behavior () = noop
+    handleSignal Created = initRootActor (Proxy @l)
+    handleSignal _       = noop
+
+class (Actor `ImplementedByAll` ToList l, Typeable l) => RootActor (l :: *) where
+    type ToList l :: [*]
+    initRootActor :: (Actor a, ToList l :⊆ Creates a) => Proxy l -> ActorAction a 
+
+instance RootActor () where
+    type ToList () = '[]
+    initRootActor _ = noop
+
+instance (Actor a, RootActor as) => RootActor (a, as) where
+    type ToList (a, as) = a ': ToList as
+    initRootActor _ = do
+        create' (Proxy @a)
+        initRootActor (Proxy @as)
 
 -- ------------- --
 --  ActorSystem  --

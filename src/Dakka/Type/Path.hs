@@ -61,7 +61,7 @@ data Path a
   deriving (Eq, Ord, Typeable, Generic, Functor, Foldable, Traversable)
 infixl 5 :/
 
-type family Tip (p :: Path k) :: k where
+type family Tip (p :: Path k) = (t :: k) where
     Tip ('Root a)  = a
     Tip (as ':/ a) = a
 

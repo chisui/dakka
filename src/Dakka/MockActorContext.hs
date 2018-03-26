@@ -27,7 +27,7 @@ import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
 
 import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState, modify )
+import "mtl" Control.Monad.State.Class ( MonadState( state ), modify )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Convert
@@ -59,12 +59,15 @@ instance Eq SystemMessage where
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
 newtype MockActorContext p v = MockActorContext
     (ReaderT (ActorRef p) (StateT (Tip p) (Writer [SystemMessage])) v)
-  deriving (Functor, Applicative, Monad, MonadState (Tip p), MonadWriter [SystemMessage], MonadReader (ActorRef p))
+  deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadReader (ActorRef p))
 
-instance ( ConsistentActorPath p
-         , MonadState (Tip p) (MockActorContext p)
-         , Actor (Tip p)
-         ) => ActorContext p (MockActorContext p) where
+instance MonadState a (MockActorContext ('Root a)) where
+    state = MockActorContext . state
+instance MonadState a (MockActorContext (as ':/ a)) where
+    state = MockActorContext . state
+
+instance ActorContextConstraints p (MockActorContext p)
+         => ActorContext p (MockActorContext p) where
 
     self = ask
 

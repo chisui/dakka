@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification
+           , KindSignatures
            , PackageImports
            , StandaloneDeriving
            , FlexibleContexts
@@ -15,8 +16,8 @@ import Dakka.Type.Tree
 import Dakka.Convert
 
 
-data AnswerableMessage r = forall as a. (Actor a, Convertible r (Message a)) => AnswerableMessage
-    { askerRef :: ActorRef (as ':/ a)
+data AnswerableMessage r = forall (p :: Path *). (ConsistentActorPath p, Actor (Tip p), Convertible r (Message (Tip p))) => AnswerableMessage
+    { askerRef :: ActorRef p
     }
 
 deriving instance Typeable r => Typeable (AnswerableMessage r)
