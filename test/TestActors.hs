@@ -36,8 +36,9 @@ instance Actor TestActor where
     type Message TestActor = String
     type Creates TestActor = '[OtherActor]
     type Capabillities TestActor = '[MonadIO]
-    
-    behavior m = do
+   
+    onSignal = noop
+    onMessage m = do
 
         -- change interal actor state through MonadState
         modify (TestActor . succ . i)
@@ -79,8 +80,9 @@ instance Actor Turnstile where
     type Message Turnstile = TurnstileInput
     startState = Locked
 
+    onSignal = noop
     -- Unlock on Coin. Lock un Push
-    behavior m = get >>= \case
+    onMessage m = get >>= \case
         Locked -> case m of
                     Coin -> put Unlocked
                     Push -> return ()
@@ -100,7 +102,8 @@ data OtherActor = OtherActor deriving (Show, Eq, Typeable)
 instance Actor OtherActor where
     type Message OtherActor = Msg
     type Creates OtherActor = '[WithRef]
-    behavior m = do
+    onSignal = noop
+    onMessage m = do
         p <- create @WithRef
         a <- self
         p ! AnswerableMessage a
@@ -112,6 +115,7 @@ instance Actor OtherActor where
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
     type Message WithRef = AnswerableMessage String
-    behavior = answer "hello"
+    onSignal = noop
+    onMessage = answer "hello"
     startState = WithRef
 

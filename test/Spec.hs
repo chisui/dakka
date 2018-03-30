@@ -12,5 +12,10 @@ import "dakka" Dakka.Type.Path
 import TestActors
 
 
-main = print $ execMock' (ARoot @TestActor </> Proxy @OtherActor) (behavior $ Msg "hello")
+main = do
+  putStrLn "test simple execution"
+  print $ execMock' (ARoot @TestActor </> Proxy @OtherActor) (onMessage $ Msg "hello")
+
+  putStrLn "test rootActor"
+  print $ execMock' (ARoot @(RootActor '[TestActor, OtherActor])) (onSignal Created)
 

@@ -128,16 +128,12 @@ create = create' Proxy
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type Behavior a = Message a -> ActorAction a
-
 type ActorAction a = forall p m. (Actor a, Tip p ~ a, ActorContext p m, m `ImplementsAll` Capabillities a) => m () 
+type Behavior a = Either (Signal a) (Message a) -> ActorAction a
 
-noop :: Applicative f => f ()
-noop = pure ()
-
-data Signal (p :: Path *) where
-    Created :: ConsistentActorPath p => Signal p
-    Obit    :: ConsistentActorPath p => ActorRef (p ':/ c) -> Signal p
+data Signal (a :: *) where
+    Created :: Actor a => Signal a
+    Obit    :: (Actor a, Tip p ~ a, ConsistentActorPath p, ConsistentActorPath (p ':/ c)) => ActorRef (p ':/ c) -> Signal a
 
 class ( RichData a
       , RichData (Message a)
@@ -145,7 +141,7 @@ class ( RichData a
       ) => Actor
              (a :: *)
     where
-      {-# MINIMAL behavior | handleMessage #-}
+      {-# MINIMAL behavior | (onMessage, onSignal) #-}
 
       -- | List of all types of actors that this actor may create in its lifetime.
       type Creates a :: [*]
@@ -159,15 +155,17 @@ class ( RichData a
       type Capabillities a :: [(* -> *) -> Constraint]
       type Capabillities a = '[]
 
-      -- | This Actors behavior
-      behavior :: Behavior a
-      behavior = handleMessage . Right
+      -- | What this Actor does when recieving a message
+      onMessage :: Message a -> ActorAction a
+      onMessage = behavior . Right
 
-      handleMessage :: Either (Signal p) (Message a) -> ActorAction a 
-      handleMessage = either handleSignal behavior
+      -- | What this Actor does when recieving a Signal
+      onSignal :: Signal a -> ActorAction a
+      onSignal = behavior . Left
 
-      handleSignal :: Signal p -> ActorAction a
-      handleSignal _ = noop
+      -- | The behavior of this Actor
+      behavior :: Either (Signal a) (Message a) -> ActorAction a 
+      behavior = either onSignal onMessage
 
       startState :: a
       default startState :: Monoid a => a
@@ -183,6 +181,12 @@ type LeafActor a = (Actor a, Creates a ~ '[])
 behaviorOf :: proxy a -> Behavior a 
 behaviorOf = const behavior
 
+noop :: (Applicative f, Applicative g) => f (g ())
+noop = pure noop'
+
+noop' :: Applicative f => f ()
+noop' = pure ()
+
 -- ----------- --
 --  RootActor  --
 -- ----------- --
@@ -191,24 +195,25 @@ type family FromList (l :: [*]) = (a :: *) | a -> l where
     FromList '[]       = ()
     FromList (a ': as) = (a, FromList as)
 
-rootActor :: forall l. Proxy (FromList l)
+type RootActor l = Proxy (FromList l)
+
+rootActor :: RootActor l
 rootActor = Proxy
 
-instance (ToList l :⊆ ToList l, RootActor l) => Actor (Proxy (l :: *)) where
+instance (ToList l :⊆ ToList l, IsRootActor l) => Actor (Proxy (l :: *)) where
     type Creates (Proxy l) = ToList l
-    behavior () = noop
-    handleSignal Created = initRootActor (Proxy @l)
-    handleSignal _       = noop
+    behavior (Left Created) = initRootActor (Proxy @l)
+    behavior _              = pure ()
 
-class (Actor `ImplementedByAll` ToList l, Typeable l) => RootActor (l :: *) where
+class (Actor `ImplementedByAll` ToList l, Typeable l) => IsRootActor (l :: *) where
     type ToList l :: [*]
     initRootActor :: (Actor a, ToList l :⊆ Creates a) => Proxy l -> ActorAction a 
 
-instance RootActor () where
+instance IsRootActor () where
     type ToList () = '[]
-    initRootActor _ = noop
+    initRootActor = noop
 
-instance (Actor a, RootActor as) => RootActor (a, as) where
+instance (Actor a, IsRootActor as) => IsRootActor (a, as) where
     type ToList (a, as) = a ': ToList as
     initRootActor _ = do
         create' (Proxy @a)
