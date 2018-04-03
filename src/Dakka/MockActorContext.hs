@@ -22,6 +22,7 @@ module Dakka.MockActorContext where
 
 import "base" Data.Proxy ( Proxy )
 import "base" Data.Typeable ( typeRep, TypeRep )
+import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
@@ -40,18 +41,23 @@ import Dakka.Constraints
 -- | Encapsulates an interaction of a behavior with the context
 data SystemMessage
     = forall a. Actor a => Create (Proxy a)
-    | forall p. (Actor (Tip p)) => Send
+    | forall p. (Actor (Tip p), Actor (PRoot p)) => Send
         { to  :: ActorRef p
-        , msg :: Message (Tip p)
+        , msg :: Message (Tip p) (PRoot p)
         }
 
 instance Show SystemMessage where
-    showsPrec i (Create p)    str = "Create " ++ show (typeRep p) ++ str
-    showsPrec i (Send to msg) str = "Send {to = " ++ show to ++ ", msg = " ++ show msg ++ "}" ++ str
+    showsPrec i (Create p)    = ("Create " ++)
+                              . showsPrec (i + 1) (typeRep p)
+    showsPrec i (Send to msg) = ("Send {to = " ++)
+                              . showsPrec 0 to
+                              . (", msg = " ++)
+                              . liftShowsPrec undefined undefined 0 msg
+                              . ("}" ++)
 
 instance Eq SystemMessage where
     (Create a)   == (Create b)   = a =~= b
-    (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~= bm
+    (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~~= bm
       where
         demotePath :: ActorRef p -> Path (Word, TypeRep)
         demotePath = convert

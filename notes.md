@@ -274,5 +274,5 @@ Notice that the type of the returned actor reference now describes the current a
 
 With `ActorRef` now representing a path we made the creation of actors a little bit more declarative. The `ActorRef` that `create` now returns reflects that the last two segemnts of the path represent the current followed by the created actor. Without any information about the rest of the system though we can not do anything with that information. Furthermore it is possible to send messages to arbitrary paths as long as the tip of that path is an actor that acceps the messages type.
 
-We would like to constrain `ActorRefs` even further such that they have to be internally consistent.  
+We would like to constrain `ActorRefs` even further such that they have to be internally consistent.
 

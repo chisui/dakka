@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies
+           , ScopedTypeVariables
            , PolyKinds
            , KindSignatures
            , ConstraintKinds
@@ -15,6 +16,7 @@ module Dakka.Constraints where
 
 import "base" Data.Kind -- We need *, that can't be expressed in an import filter
 import "base" Data.Typeable ( Typeable, cast )
+import "base" Data.Functor.Classes ( Eq1(..), Show1 )
 import "base" Unsafe.Coerce ( unsafeCoerce ) -- used for 'downCast'
 import "base" Data.Function ( on )
 
@@ -53,10 +55,17 @@ type family (c :: k -> Constraint) `ImplementedByAll` (l :: [k]) :: Constraint w
     c `ImplementedByAll` '[] = ()
 
 
-type RichData a = (Typeable a, Eq a, Show a)
+type RichData  a = (Typeable a, Eq  a, Show  a)
+type RichData1 a = (Typeable a, Eq1 a, Show1 a)
 
 (=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool
 a =~= b = Just a == cast b
+
+(=~~=) :: (Typeable (f a), Typeable (g b), Eq1 f) => f a -> g b -> Bool
+a =~~= b = Just a `eq'` cast b
+  where
+    eq' :: Eq1 f => Maybe (f a) -> Maybe (f a) -> Bool
+    eq' = liftEq (liftEq (const $ const False))
 
 data ConstrainedDynamic (cs :: [* -> Constraint])
     = forall a. (a `ImplementsAll` cs) => CDyn a

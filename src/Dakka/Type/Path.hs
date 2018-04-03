@@ -31,6 +31,7 @@
 module Dakka.Type.Path
     ( Path(..)
     , Tip
+    , PRoot
     , IndexedPath(..)
     , IndexedRef(..)
     , ref
@@ -60,6 +61,10 @@ data Path a
     | Path a :/ a -- ^ a sub path
   deriving (Eq, Ord, Typeable, Generic, Functor, Foldable, Traversable)
 infixl 5 :/
+
+type family PRoot (p :: Path k) = (t :: k) where
+    PRoot ('Root a)  = a
+    PRoot (as ':/ a) = PRoot as
 
 type family Tip (p :: Path k) = (t :: k) where
     Tip ('Root a)  = a

@@ -1,5 +1,6 @@
 {-# LANGUAGE PackageImports
            , FlexibleInstances
+           , ScopedTypeVariables
            , MultiParamTypeClasses
            , DeriveDataTypeable
            , DataKinds
@@ -11,6 +12,7 @@
 module TestActors where
 
 import "base" Data.Typeable
+import "base" Control.Applicative ( Const(..) )
 
 import "dakka" Dakka.Actor
 import "dakka" Dakka.AnswerableMessage
@@ -33,12 +35,12 @@ instance Monoid TestActor where
     mempty = TestActor 0
 
 instance Actor TestActor where
-    type Message TestActor = String
+    type Message TestActor = Const String
     type Creates TestActor = '[OtherActor]
     type Capabillities TestActor = '[MonadIO]
    
     onSignal = noop
-    onMessage m = do
+    onMessage (Const m) = do
 
         -- change interal actor state through MonadState
         modify (TestActor . succ . i)
@@ -50,7 +52,7 @@ instance Actor TestActor where
         -- create a new Actor and send a message to it.
         -- You can only create Actors that are in 'Creates'.
         -- You can also only send messages that the actor can handle to them.
-        create @OtherActor >>= (! (Msg m))
+        create @OtherActor >>= (! (Const $ Msg m))
 
         -- Create an Actor reference from a path.
         -- The path has to be consistent.
@@ -60,6 +62,10 @@ instance Actor TestActor where
         -- The message contains a reference to this actor.
         AnswerableMessage <$> self >>= (send wr)
 
+apply :: forall proxy a b. (Convertible a b, Show b) => proxy b -> a -> IO ()
+apply _ = print . (convert :: a -> b)
+t :: Const String Int -> IO ()
+t = apply (Proxy @(Const String Int))
 
 -- | Simple Finite state machine example.
 -- Shamelessly ripped from https://en.wikipedia.org/wiki/Finite-state_machine#Example:_coin-operated_turnstile
@@ -77,12 +83,12 @@ data TurnstileInput
   deriving (Show, Eq, Typeable)
 
 instance Actor Turnstile where
-    type Message Turnstile = TurnstileInput
+    type Message Turnstile = Const TurnstileInput
     startState = Locked
 
     onSignal = noop
     -- Unlock on Coin. Lock un Push
-    onMessage m = get >>= \case
+    onMessage (Const m) = get >>= \case
         Locked -> case m of
                     Coin -> put Unlocked
                     Push -> return ()
@@ -100,7 +106,7 @@ instance Convertible String Msg where
 data OtherActor = OtherActor deriving (Show, Eq, Typeable)
 
 instance Actor OtherActor where
-    type Message OtherActor = Msg
+    type Message OtherActor = Const Msg
     type Creates OtherActor = '[WithRef]
     onSignal = noop
     onMessage m = do
@@ -114,8 +120,8 @@ instance Actor OtherActor where
 -- | Actor that handles references to other Actors
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
-    type Message WithRef = AnswerableMessage String
+    type Message WithRef = AnswerableMessage (Const String)
     onSignal = noop
-    onMessage = answer "hello"
+    onMessage a = Const "hello" `answer` a
     startState = WithRef
 
