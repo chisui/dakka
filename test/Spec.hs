@@ -6,10 +6,10 @@
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.MockActorContext
-import "dakka" Dakka.Actor
+import "dakka" Dakka.MockActorContext ( execMock' )
+import "dakka" Dakka.Actor ( RootActor, (</>), ActorRef(..), Actor( onMessage, onSignal ), Signal(..) )
 
-import TestActors
+import TestActors ( TestActor, OtherActor, Msg(..) )
 
 
 main = do

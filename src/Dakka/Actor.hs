@@ -38,9 +38,9 @@ import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
 import "mtl" Control.Monad.State.Class ( MonadState, modify, get )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
-import Dakka.Constraints
+import Dakka.Constraints ( (:∈), (:⊆), ImplementsAll, ImplementedByAll, RichData, RichData1 )
 import Dakka.Path ( Path(..), Tip, PRoot, IndexedRef(..) )
-import Dakka.Convert
+import Dakka.Convert ( Convertible( convert ) )
 
 -- ---------- --
 --  ActorRef  --

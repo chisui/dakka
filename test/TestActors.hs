@@ -11,13 +11,12 @@
 #-}
 module TestActors where
 
-import "base" Data.Typeable
+import "base" Data.Typeable ( Typeable, Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor
-import "dakka" Dakka.AnswerableMessage
-import "dakka" Dakka.Convert
-import "dakka" Dakka.Path
+import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (<$/>) )
+import "dakka" Dakka.AnswerableMessage ( AnswerableMessage(..), answer )
+import "dakka" Dakka.Convert ( Convertible(..) )
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 import "mtl" Control.Monad.State.Class ( modify, get, put )
@@ -38,7 +37,7 @@ instance Actor TestActor where
     type Message TestActor = Const String
     type Creates TestActor = '[OtherActor]
     type Capabillities TestActor = '[MonadIO]
-   
+
     onSignal = noop
     onMessage (Const m) = do
 

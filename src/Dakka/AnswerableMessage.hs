@@ -11,9 +11,9 @@ module Dakka.AnswerableMessage where
 import "base" Data.Typeable ( Typeable, cast, TypeRep )
 import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
 
-import Dakka.Actor
-import Dakka.Path
-import Dakka.Convert
+import Dakka.Actor ( ConsistentActorPath, Actor, Message, ActorRef, ActorContext( (!) ) )
+import Dakka.Path ( Path, PRoot, Tip )
+import Dakka.Convert ( Convertible( convert ) )
 
 
 data AnswerableMessage r a = forall (p :: Path *).
