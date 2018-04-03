@@ -1,34 +1,33 @@
-{-# LANGUAGE TypeOperators
-           , DeriveDataTypeable
-           , DeriveGeneric
-           , DeriveFunctor
-           , DeriveTraversable
-           , DeriveFoldable
-           , DefaultSignatures
-           , FunctionalDependencies
-           , UndecidableSuperClasses
-           , TypeFamilies
-           , TypeFamilyDependencies
-           , UndecidableInstances
-           , MultiParamTypeClasses
-           , ScopedTypeVariables
-           , FlexibleInstances
-           , TypeSynonymInstances
-           , GADTs
-           , DataKinds
-           , PolyKinds
-           , InstanceSigs
-           , TypeInType
-           , FlexibleContexts
-           , StandaloneDeriving
-           , TemplateHaskell
-           , GeneralizedNewtypeDeriving
-           , QuasiQuotes
-           , TypeApplications
-           , PackageImports
-#-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PackageImports #-}
 -- | Typesafe Paths with type unsafe indices.
-module Dakka.Type.Path
+module Dakka.Path
     ( Path(..)
     , Tip
     , PRoot

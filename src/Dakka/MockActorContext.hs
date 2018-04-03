@@ -1,23 +1,22 @@
-{-# LANGUAGE FlexibleContexts
-           , FlexibleInstances
-           , TypeFamilies
-           , TypeApplications
-           , DefaultSignatures
-           , MultiParamTypeClasses
-           , FunctionalDependencies
-           , DataKinds
-           , ExistentialQuantification
-           , GeneralizedNewtypeDeriving
-           , StandaloneDeriving
-           , DeriveDataTypeable
-           , PackageImports
-           , TypeOperators
-           , ConstraintKinds
-           , PolyKinds
-           , RankNTypes
-           , UndecidableInstances
-           , UndecidableSuperClasses 
-#-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.MockActorContext where
 
 import "base" Data.Proxy ( Proxy )
@@ -33,8 +32,7 @@ import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Convert
 import Dakka.Actor
-import Dakka.Type.Path
-import Dakka.Type.Tree
+import Dakka.Path
 import Dakka.Constraints
 
 

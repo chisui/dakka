@@ -1,17 +1,16 @@
-{-# LANGUAGE TypeFamilies
-           , ScopedTypeVariables
-           , PolyKinds
-           , KindSignatures
-           , ConstraintKinds
-           , DataKinds
-           , TypeOperators
-           , PackageImports
-           , UndecidableInstances
-           , TypeApplications
-           , RankNTypes
-           , StandaloneDeriving
-           , ExistentialQuantification
-#-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Dakka.Constraints where
 
 import "base" Data.Kind -- We need *, that can't be expressed in an import filter

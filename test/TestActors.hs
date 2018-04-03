@@ -17,7 +17,7 @@ import "base" Control.Applicative ( Const(..) )
 import "dakka" Dakka.Actor
 import "dakka" Dakka.AnswerableMessage
 import "dakka" Dakka.Convert
-import "dakka" Dakka.Type.Path
+import "dakka" Dakka.Path
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 import "mtl" Control.Monad.State.Class ( modify, get, put )

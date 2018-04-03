@@ -1,8 +1,7 @@
-{-# LANGUAGE MultiParamTypeClasses
-           , FlexibleInstances
-           , PackageImports
-           , TypeFamilies
-#-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TypeFamilies #-}
 module Dakka.Convert where
 
 import "base" Control.Applicative ( Const(..) )

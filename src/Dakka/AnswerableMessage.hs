@@ -1,20 +1,18 @@
-{-# LANGUAGE ExistentialQuantification
-           , TypeFamilies
-           , KindSignatures
-           , PackageImports
-           , StandaloneDeriving
-           , FlexibleContexts
-           , TypeOperators
-           , DataKinds
-#-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
 module Dakka.AnswerableMessage where
 
 import "base" Data.Typeable ( Typeable, cast, TypeRep )
 import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
 
 import Dakka.Actor
-import Dakka.Type.Path
-import Dakka.Type.Tree
+import Dakka.Path
 import Dakka.Convert
 
 

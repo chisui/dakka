@@ -1,27 +1,26 @@
-{-# LANGUAGE FlexibleContexts
-           , FlexibleInstances
-           , GADTs
-           , TypeFamilies
-           , TypeFamilyDependencies
-           , TypeApplications
-           , DefaultSignatures
-           , MultiParamTypeClasses
-           , FunctionalDependencies
-           , DataKinds
-           , ExistentialQuantification
-           , GeneralizedNewtypeDeriving
-           , StandaloneDeriving
-           , DeriveDataTypeable
-           , PackageImports
-           , TypeOperators
-           , ConstraintKinds
-           , PolyKinds
-           , ScopedTypeVariables
-           , InstanceSigs
-           , RankNTypes
-           , UndecidableInstances
-           , UndecidableSuperClasses
-#-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.Actor where
 
 import "base" Data.Kind ( Constraint )
@@ -40,8 +39,7 @@ import "mtl" Control.Monad.State.Class ( MonadState, modify, get )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Constraints
-import Dakka.Type.Path ( Path(..), Tip, PRoot, IndexedRef(..) )
-import Dakka.Type.Tree
+import Dakka.Path ( Path(..), Tip, PRoot, IndexedRef(..) )
 import Dakka.Convert
 
 -- ---------- --

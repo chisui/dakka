@@ -18,8 +18,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Dakka.Actor
                      , Dakka.AnswerableMessage
-                     , Dakka.Type.Path
-                     , Dakka.Type.Tree
+                     , Dakka.Path
                      , Dakka.MockActorContext
                      , Dakka.Convert
   other-modules:       Dakka.Constraints

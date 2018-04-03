@@ -8,7 +8,6 @@ import "base" Control.Applicative ( Const(..) )
 
 import "dakka" Dakka.MockActorContext
 import "dakka" Dakka.Actor
-import "dakka" Dakka.Type.Path
 
 import TestActors
 
