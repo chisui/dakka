@@ -1,14 +1,13 @@
-{-# LANGUAGE PackageImports
-           , FlexibleInstances
-           , ScopedTypeVariables
-           , MultiParamTypeClasses
-           , DeriveDataTypeable
-           , DataKinds
-           , TypeApplications
-           , TypeFamilies
-           , TypeSynonymInstances
-           , LambdaCase
-#-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE LambdaCase #-}
 module TestActors where
 
 import "base" Data.Typeable ( Typeable, Proxy(..) )

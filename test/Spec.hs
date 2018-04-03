@@ -1,7 +1,7 @@
-{-# LANGUAGE TypeApplications
-           , PackageImports
-           , DataKinds
-#-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE DataKinds #-}
+
 
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
