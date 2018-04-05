@@ -11,7 +11,7 @@ import "dakka" Dakka.Actor ( RootActor, (</>), ActorRef(..), Actor( onMessage, o
 
 import TestActors ( TestActor, OtherActor, Msg(..) )
 
-
+main :: IO ()
 main = do
   putStrLn "test simple execution"
   print $ execMock' (ARoot @TestActor </> Proxy @OtherActor) (onMessage . Const $ Msg "hello")

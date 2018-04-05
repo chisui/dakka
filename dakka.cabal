@@ -28,6 +28,7 @@ library
                      , contravariant
                      , mtl
   default-language:    Haskell2010
+  ghc-options: -fprint-potential-instances -Wall
 
 Test-Suite dakka-test
   type:             exitcode-stdio-1.0

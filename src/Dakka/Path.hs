@@ -1,3 +1,4 @@
+{-# LANGUAGE Safe #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -21,8 +22,6 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PackageImports #-}
@@ -37,21 +36,18 @@ module Dakka.Path
     , AllSegmentsImplement
     ) where
 
-import           "base" Data.Functor.Classes 
+import "base" Data.Functor.Classes 
                           ( Show1( liftShowsPrec )
                           , Eq1( liftEq )
                           , Ord1( liftCompare )
-                          , Read1( liftReadPrec, liftReadListPrec )
-                          , liftReadListPrecDefault
                           )
-import           "base" GHC.Exts ( IsList( Item, fromList, toList ) )
-import           "base" Control.Monad ( ap )
-import qualified "base" Data.Foldable as F
-import           "base" GHC.Generics ( Generic )
-import           "base" Data.Kind
-import           "base" Data.Typeable ( Typeable, typeOf, Proxy, TypeRep )
+import "base" Control.Monad ( ap )
+import "base" Data.Foldable ( toList )
+import "base" GHC.Generics ( Generic )
+import "base" Data.Kind
+import "base" Data.Typeable ( Typeable, typeOf, TypeRep )
 
-import           Dakka.Convert
+import Dakka.Convert
 
 -- | A Path of type 'a'.
 -- Used as promoted type in @IndexedPath@.
@@ -84,16 +80,11 @@ instance Monad Path where
     (Root a)  >>= f = f a
     (as :/ a) >>= f = (as >>= f) <> f a
 
-instance IsList (Path a) where
-    type Item (Path a) = a
-    toList = F.toList
-    fromList (a:as) = F.foldr' (<>) (Root a) $ fmap pure as
-
 instance Show a => Show (Path a) where
     showsPrec = liftShowsPrec showsPrec showList
 
 instance Show1 Path where
-    liftShowsPrec s _ i p str = '/' : foldl showSegment "" p ++ str
+    liftShowsPrec s _ i p st = '/' : foldl showSegment "" p ++ st
       where showSegment str e = str ++ s (i-1) e "" ++ "/"
 
 instance Eq1 Path where
@@ -124,6 +115,7 @@ typeOfTip _ = typeOf @(Tip p) undefined
 -- | Retrieve the demoted tip.
 demoteTip :: Typeable (Tip p) => IndexedPath p -> (TypeRep, Word)
 demoteTip p@(_ :// i) = (typeOfTip p, i)
+demoteTip p@IRoot     = (typeOfTip p, 0)
 
 -- | Demote a path.
 demotePath :: p `AllSegmentsImplement` Typeable => IndexedPath p -> Path (TypeRep, Word)
@@ -135,12 +127,16 @@ instance (p `AllSegmentsImplement` Typeable) => Convertible (IndexedPath p) (Pat
 
 instance (p `AllSegmentsImplement` Typeable) => Show (IndexedPath p) where
     showsPrec i = liftShowsPrec showDemoted undefined i . demotePath
-      where showDemoted _ (t, i) str = str ++ show t ++ '!' : show i
+      where showDemoted _ (t, n) str = str ++ show t ++ '!' : show n
 
 -- | Represents a Segement of an 'IndexedPath'.
 newtype IndexedRef a
     = IR Word
-  deriving (Eq, Ord, Functor, Enum)
+  deriving (Eq, Ord, Functor)
+
+instance Enum (IndexedRef a) where
+  fromEnum (IR e) = fromEnum e
+  toEnum = IR . toEnum
 
 ref :: Typeable a => Word -> IndexedRef a
 ref = IR

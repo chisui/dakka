@@ -1,3 +1,5 @@
+{-# LANGUAGE Trustworthy #-} -- Generalized newtype deriving for MockActorContext
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -7,7 +9,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PackageImports #-}
@@ -21,13 +22,13 @@ module Dakka.MockActorContext where
 
 import "base" Data.Proxy ( Proxy )
 import "base" Data.Typeable ( typeRep, TypeRep )
-import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
+import "base" Data.Functor.Classes ( Show1(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
 
 import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState( state ), modify )
+import "mtl" Control.Monad.State.Class ( MonadState( state ) )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Convert
@@ -45,13 +46,13 @@ data SystemMessage
         }
 
 instance Show SystemMessage where
-    showsPrec i (Create p)    = ("Create " ++)
-                              . showsPrec (i + 1) (typeRep p)
-    showsPrec i (Send to msg) = ("Send {to = " ++)
-                              . showsPrec 0 to
-                              . (", msg = " ++)
-                              . liftShowsPrec undefined undefined 0 msg
-                              . ("}" ++)
+    showsPrec i (Create p)      = ("Create " ++)
+                                . showsPrec (i + 1) (typeRep p)
+    showsPrec _ (Send to' msg') = ("Send {to = " ++)
+                                . showsPrec 0 to'
+                                . (", msg = " ++)
+                                . liftShowsPrec undefined undefined 0 msg'
+                                . ("}" ++)
 
 instance Eq SystemMessage where
     (Create a)   == (Create b)   = a =~= b
@@ -59,6 +60,7 @@ instance Eq SystemMessage where
       where
         demotePath :: ActorRef p -> Path (Word, TypeRep)
         demotePath = convert
+    _ == _ = False
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
 newtype MockActorContext p v = MockActorContext
