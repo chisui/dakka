@@ -9,7 +9,7 @@
 {-# LANGUAGE DataKinds #-}
 module Dakka.AnswerableMessage where
 
-import "base" Data.Typeable ( Typeable, cast, TypeRep )
+import "base" Data.Typeable ( Typeable, TypeRep )
 import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
 
 import Dakka.Actor ( ConsistentActorPath, Actor, Message, ActorRef, ActorContext( (!) ) )

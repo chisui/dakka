@@ -24,19 +24,12 @@
 module Dakka.Actor where
 
 import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable, TypeRep, cast, typeRep )
+import "base" Data.Typeable ( Typeable, TypeRep, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
-import "base" Data.Functor ( void )
 import "base" Control.Applicative ( Const(..) )
 import "containers" Data.Tree ( Tree(..) )
 
-import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
-import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
-import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
-
-import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState, modify, get )
-import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
+import "mtl" Control.Monad.State.Class ( MonadState )
 
 import Dakka.Constraints ( (:∈), (:⊆), ImplementsAll, ImplementedByAll, RichData, RichData1 )
 import Dakka.Path ( Path(..), Tip, PRoot, IndexedRef(..) )
@@ -55,9 +48,9 @@ deriving instance Eq (ActorRef p)
 deriving instance Typeable (ActorRef p)
 
 instance Convertible (ActorRef p) (Path (Word, TypeRep)) where
-    convert :: forall p. (ActorRef p) -> (Path (Word, TypeRep)) 
-    convert ARoot = Root (0, typeRep (Proxy @(Tip p)))
-    convert (as :// a) = convert as :/ (a, typeRep (Proxy @(Tip p)))
+    convert :: forall q. (ActorRef q) -> (Path (Word, TypeRep)) 
+    convert ARoot = Root (0, typeRep (Proxy @(Tip q)))
+    convert (as :// a) = convert as :/ (a, typeRep (Proxy @(Tip q)))
 
 type family ConsistentActorPath (p :: Path *) :: Constraint where
     ConsistentActorPath ('Root a)  = (Actor a)
@@ -220,7 +213,7 @@ instance IsRootActor () where
 instance (Actor a, IsRootActor as) => IsRootActor (a, as) where
     type ToList (a, as) = a ': ToList as
     initRootActor _ = do
-        create' (Proxy @a)
+        _ <- create' (Proxy @a)
         initRootActor (Proxy @as)
 
 -- ------------- --
