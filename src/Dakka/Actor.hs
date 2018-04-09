@@ -25,6 +25,7 @@ module Dakka.Actor where
 
 import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, TypeRep, typeRep )
+import "base" Data.Foldable ( toList )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 import "containers" Data.Tree ( Tree(..) )
@@ -43,7 +44,14 @@ data ActorRef (p :: Path *) where
     ARoot :: Actor a => ActorRef ('Root a)
     (://) :: (a :∈ Creates (Tip as), Actor a) => ActorRef as -> Word -> ActorRef (as ':/ a)
 
-deriving instance Show (ActorRef p)
+instance Show (ActorRef p) where
+  showsPrec d = showParen (d > 10) . showsPrecPath . convert
+      where
+        showsPrecPath :: Path (Word, TypeRep) ->  ShowS
+        showsPrecPath = foldl (.) id . map showsPrecPathSegment . toList
+        showsPrecPathSegment (0, t) s = '/' : show t ++ s
+        showsPrecPathSegment (i, t) s = '/' : show t ++ ':' : show i ++ s
+
 deriving instance Eq (ActorRef p)
 deriving instance Typeable (ActorRef p)
 
@@ -72,6 +80,8 @@ instance PathSegment Proxy where
     ref </> _ = ref </> IR 0
 instance PathSegment IndexedRef where
     ref </> (IR i) = ref :// i
+instance PathSegment (Const Word) where
+    ref </> (Const i) = ref :// i
 
 -- -------------- --
 --  ActorContext  --

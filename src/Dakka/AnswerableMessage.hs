@@ -38,7 +38,7 @@ instance Eq (AnswerableMessage a r) where
     (==) = liftEq undefined
 
 instance Show1 (AnswerableMessage a) where
-    liftShowsPrec _ _ i (AnswerableMessage a) = ("AnswerableMessage " ++) . showsPrec i a
+    liftShowsPrec _ _ d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . showsPrec 0 a
 instance Show (AnswerableMessage a r) where
     showsPrec = liftShowsPrec undefined undefined
 

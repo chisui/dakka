@@ -46,12 +46,14 @@ data SystemMessage
         }
 
 instance Show SystemMessage where
-    showsPrec i (Create p)      = ("Create " ++)
-                                . showsPrec (i + 1) (typeRep p)
-    showsPrec _ (Send to' msg') = ("Send {to = " ++)
-                                . showsPrec 0 to'
+    showsPrec d (Create p)      = showParen (d > 10) 
+                                $ ("Create " ++)
+                                . showsPrec 0 (typeRep p)
+    showsPrec d (Send to' msg') = showParen (d > 10)
+                                $ ("Send {to = " ++)
+                                . showsPrec 11 to'
                                 . (", msg = " ++)
-                                . liftShowsPrec undefined undefined 0 msg'
+                                . liftShowsPrec undefined undefined 11 msg'
                                 . ("}" ++)
 
 instance Eq SystemMessage where
