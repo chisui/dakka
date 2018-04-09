@@ -32,6 +32,9 @@ library
                      , Dakka.MockActorContext
                      , Dakka.Convert
   other-modules:       Dakka.Constraints
+                     , Dakka.Path.Base
+                     , Dakka.Path.PathSegment
+                     , Dakka.Path.IndexedPath
   build-depends:       base
                      , containers
                      , transformers

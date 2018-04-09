@@ -21,11 +21,30 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-module Dakka.Actor where
+module Dakka.Actor
+    ( PathSegment(..)
+    , IndexedPath(..)
+    , root
+    , ref
+    , ActorRef
+    , ActorRefConstraints
+    , ActorContext(..)
+    , create
+    , ActorContextConstraints
+    , Actor(..)
+    , ActorAction
+    , Behavior
+    , behaviorOf
+    , RootActor
+    , rootActor
+    , LeafActor
+    , PureActor
+    , Signal(..)
+    , noop
+    ) where
 
 import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable, TypeRep, typeRep )
-import "base" Data.Foldable ( toList )
+import "base" Data.Typeable ( Typeable )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 import "containers" Data.Tree ( Tree(..) )
@@ -33,55 +52,21 @@ import "containers" Data.Tree ( Tree(..) )
 import "mtl" Control.Monad.State.Class ( MonadState )
 
 import Dakka.Constraints ( (:∈), (:⊆), ImplementsAll, ImplementedByAll, RichData, RichData1 )
-import Dakka.Path ( Path(..), Tip, PRoot, IndexedRef(..) )
-import Dakka.Convert ( Convertible( convert ) )
+import Dakka.Path ( Path(..), Tip, PRoot, root, ref, IndexedPath(..), AllSegmentsImplement, PathSegment(..) )
 
 -- ---------- --
 --  ActorRef  --
 -- ---------- --
 
-data ActorRef (p :: Path *) where
-    ARoot :: Actor a => ActorRef ('Root a)
-    (://) :: (a :∈ Creates (Tip as), Actor a) => ActorRef as -> Word -> ActorRef (as ':/ a)
-
-instance Show (ActorRef p) where
-  showsPrec d = showParen (d > 10) . showsPrecPath . convert
-      where
-        showsPrecPath :: Path (Word, TypeRep) ->  ShowS
-        showsPrecPath = foldl (.) id . map showsPrecPathSegment . toList
-        showsPrecPathSegment (0, t) s = '/' : show t ++ s
-        showsPrecPathSegment (i, t) s = '/' : show t ++ ':' : show i ++ s
-
-deriving instance Eq (ActorRef p)
-deriving instance Typeable (ActorRef p)
-
-instance Convertible (ActorRef p) (Path (Word, TypeRep)) where
-    convert :: forall q. (ActorRef q) -> (Path (Word, TypeRep)) 
-    convert ARoot = Root (0, typeRep (Proxy @(Tip q)))
-    convert (as :// a) = convert as :/ (a, typeRep (Proxy @(Tip q)))
-
+type ActorRef p = IndexedPath p
+type ActorRefConstraints p
+  = ( ConsistentActorPath p
+    , p `AllSegmentsImplement` Actor
+    , p `AllSegmentsImplement` Typeable
+    )
 type family ConsistentActorPath (p :: Path *) :: Constraint where
     ConsistentActorPath ('Root a)  = (Actor a)
     ConsistentActorPath (as ':/ a) = (a :∈ Creates (Tip as), ConsistentActorPath as)
-
-(<$/>) :: ( Functor f
-          , Actor a
-          , ConsistentActorPath (as ':/ a)
-          , PathSegment seg
-          ) => f (ActorRef as) -> seg a -> f (ActorRef (as ':/ a))
-f <$/> a = (</> a) <$> f
-         
-class PathSegment seg where
-    (</>) :: ( ConsistentActorPath (as ':/ a)
-             , Actor a
-             ) => ActorRef as -> seg a -> ActorRef (as ':/ a)
-
-instance PathSegment Proxy where
-    ref </> _ = ref </> IR 0
-instance PathSegment IndexedRef where
-    ref </> (IR i) = ref :// i
-instance PathSegment (Const Word) where
-    ref </> (Const i) = ref :// i
 
 -- -------------- --
 --  ActorContext  --
@@ -90,7 +75,7 @@ instance PathSegment (Const Word) where
 type ActorContextConstraints p m
   = ( Actor (PRoot p)
     , Actor (Tip p)
-    , ConsistentActorPath p
+    , ActorRefConstraints p
     , MonadState (Tip p) m
     )
 
@@ -112,17 +97,17 @@ class ActorContextConstraints p m
       {-# MINIMAL self, create', (send | (!)) #-}
 
       -- | reference to the currently running 'Actor'
-      self :: m (ActorRef p)
+      self :: ConsistentActorPath p => m (ActorRef p)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
-      create' :: (Actor b, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => Proxy b -> m (ActorRef (p ':/ b))
+      create' :: (Actor b, b :∈ Creates (Tip p), ActorRefConstraints (p ':/ b)) => Proxy b -> m (ActorRef (p ':/ b))
 
       -- | Send a message to another actor
-      send :: (PRoot p ~ PRoot b, Actor (Tip b)) => ActorRef b -> Message (Tip b) (PRoot p) -> m ()
+      send :: (PRoot p ~ PRoot b, Actor (Tip b), ActorRefConstraints b) => ActorRef b -> Message (Tip b) (PRoot p) -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
-      (!) :: (PRoot p ~ PRoot b, Actor (Tip b)) => ActorRef b -> Message (Tip b) (PRoot b) -> m () 
+      (!) :: (PRoot p ~ PRoot b, Actor (Tip b), ActorRefConstraints b) => ActorRef b -> Message (Tip b) (PRoot b) -> m () 
       (!) = send
 
 create :: (Actor b, ActorContext p m, b :∈ Creates (Tip p), ConsistentActorPath (p ':/ b)) => m (ActorRef (p ':/ b))

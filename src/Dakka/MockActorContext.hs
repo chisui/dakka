@@ -40,10 +40,15 @@ import Dakka.Constraints
 -- | Encapsulates an interaction of a behavior with the context
 data SystemMessage
     = forall a. Actor a => Create (Proxy a)
-    | forall p. (Actor (Tip p), Actor (PRoot p)) => Send
-        { to  :: ActorRef p
-        , msg :: Message (Tip p) (PRoot p)
-        }
+    | forall p. 
+        ( ActorRefConstraints p
+        , Show (ActorRef p)
+        , Actor (Tip p)
+        , Actor (PRoot p)
+        ) => Send
+            { to  :: ActorRef p
+            , msg :: Message (Tip p) (PRoot p)
+            }
 
 instance Show SystemMessage where
     showsPrec d (Create p)      = showParen (d > 10) 
@@ -60,7 +65,7 @@ instance Eq SystemMessage where
     (Create a)   == (Create b)   = a =~= b
     (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~~= bm
       where
-        demotePath :: ActorRef p -> Path (Word, TypeRep)
+        demotePath :: ActorRefConstraints p => ActorRef p -> Path (TypeRep, Word)
         demotePath = convert
     _ == _ = False
 
@@ -81,7 +86,7 @@ instance ActorContextConstraints p (MockActorContext p)
 
     create' a = do
         tell [Create a]
-        self <$/> a
+        self </> a
 
     p ! m = tell [Send p m]
 

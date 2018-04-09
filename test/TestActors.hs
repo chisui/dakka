@@ -13,7 +13,7 @@ module TestActors where
 import "base" Data.Typeable ( Typeable, Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (<$/>) )
+import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (</>) )
 import "dakka" Dakka.AnswerableMessage ( AnswerableMessage(..), answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
@@ -54,7 +54,7 @@ instance Actor TestActor where
 
         -- Create an Actor reference from a path.
         -- The path has to be consistent.
-        wr <- self <$/> Proxy @OtherActor <$/> Proxy @WithRef
+        wr <- self </> Proxy @OtherActor </> Proxy @WithRef
 
         -- Send an AnswerableMessage to the refered actor.
         -- The message contains a reference to this actor.
