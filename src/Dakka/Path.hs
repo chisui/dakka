@@ -1,18 +1,8 @@
 {-# LANGUAGE Safe #-}
 -- | Typesafe Paths with type unsafe indices.
-module Dakka.Path
-    ( Path(..)
-    , Tip
-    , PRoot
-    , IndexedPath(..)
-    , root
-    , IndexedRef(..)
-    , ref
-    , AllSegmentsImplement
-    , module Exp
-    ) where
+module Dakka.Path ( module Exp ) where
 
-import Dakka.Path.Base
+import Dakka.Path.Base as Exp
 import Dakka.Path.PathSegment as Exp
-import Dakka.Path.IndexedPath
+import Dakka.Path.IndexedPath as Exp
 

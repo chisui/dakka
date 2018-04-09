@@ -35,6 +35,8 @@ library
                      , Dakka.Path.Base
                      , Dakka.Path.PathSegment
                      , Dakka.Path.IndexedPath
+                     , Dakka.Actor.Base
+                     , Dakka.Actor.RootActor
   build-depends:       base
                      , containers
                      , transformers

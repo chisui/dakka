@@ -21,7 +21,7 @@
 module Dakka.MockActorContext where
 
 import "base" Data.Proxy ( Proxy )
-import "base" Data.Typeable ( typeRep, TypeRep )
+import "base" Data.Typeable ( typeRep )
 import "base" Data.Functor.Classes ( Show1(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
@@ -31,7 +31,6 @@ import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
 import "mtl" Control.Monad.State.Class ( MonadState( state ) )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
-import Dakka.Convert
 import Dakka.Actor
 import Dakka.Path
 import Dakka.Constraints
@@ -52,21 +51,18 @@ data SystemMessage
 
 instance Show SystemMessage where
     showsPrec d (Create p)      = showParen (d > 10) 
-                                $ ("Create " ++)
+                                $ showString "Create "
                                 . showsPrec 0 (typeRep p)
     showsPrec d (Send to' msg') = showParen (d > 10)
-                                $ ("Send {to = " ++)
+                                $ showString "Send {to = "
                                 . showsPrec 11 to'
-                                . (", msg = " ++)
+                                . showString ", msg = "
                                 . liftShowsPrec undefined undefined 11 msg'
-                                . ("}" ++)
+                                . showString "}"
 
 instance Eq SystemMessage where
     (Create a)   == (Create b)   = a =~= b
     (Send at am) == (Send bt bm) = demotePath at == demotePath bt && am =~~= bm
-      where
-        demotePath :: ActorRefConstraints p => ActorRef p -> Path (TypeRep, Word)
-        demotePath = convert
     _ == _ = False
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
@@ -79,8 +75,9 @@ instance MonadState a (MockActorContext ('Root a)) where
 instance MonadState a (MockActorContext (as ':/ a)) where
     state = MockActorContext . state
 
-instance ActorContextConstraints p (MockActorContext p)
-         => ActorContext p (MockActorContext p) where
+instance ( ActorRefConstraints p
+         , MonadState (Tip p) (MockActorContext p)
+         ) => ActorContext p (MockActorContext p) where
 
     self = ask
 
