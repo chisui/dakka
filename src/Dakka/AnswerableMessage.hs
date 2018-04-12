@@ -12,7 +12,7 @@ module Dakka.AnswerableMessage where
 import "base" Data.Typeable ( Typeable, TypeRep )
 import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
 
-import Dakka.Actor ( ActorRefConstraints, Actor, Message, ActorRef, ActorContext( (!) ) )
+import Dakka.Actor ( ActorRefConstraints, Actor, Message, ActorRef, ActorContext( (!) ), ActorId )
 import Dakka.Path ( Path, PRoot, Tip )
 import Dakka.Convert ( Convertible( convert ) )
 
@@ -31,14 +31,14 @@ deriving instance (Typeable a, Typeable r) => Typeable (AnswerableMessage a r)
 instance Eq1 (AnswerableMessage a) where
     liftEq _ (AnswerableMessage a) (AnswerableMessage b) = demotePath a == demotePath b
       where
-        demotePath :: ActorRefConstraints p => ActorRef p -> Path (TypeRep, Word)
+        demotePath :: ActorRefConstraints p => ActorRef p -> Path (TypeRep, ActorId)
         demotePath = convert
 
 instance Eq (AnswerableMessage a r) where
     (==) = liftEq undefined
 
 instance Show1 (AnswerableMessage a) where
-    liftShowsPrec _ _ d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . showsPrec 0 a
+    liftShowsPrec _ _ d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . shows a
 instance Show (AnswerableMessage a r) where
     showsPrec = liftShowsPrec undefined undefined
 

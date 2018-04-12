@@ -34,9 +34,10 @@ library
   other-modules:       Dakka.Constraints
                      , Dakka.Path.Base
                      , Dakka.Path.PathSegment
-                     , Dakka.Path.IndexedPath
+                     , Dakka.Path.HPathT
                      , Dakka.Actor.Base
                      , Dakka.Actor.RootActor
+                     , Dakka.Actor.ActorId
   build-depends:       base
                      , containers
                      , transformers

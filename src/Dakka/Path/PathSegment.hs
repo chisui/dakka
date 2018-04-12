@@ -1,6 +1,7 @@
 {-# LANGUAGE Safe #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeOperators #-}
@@ -11,21 +12,26 @@ import "base" Control.Applicative ( Const(..) )
 import "base" Data.Proxy ( Proxy )
 
 import Dakka.Path.Base
-import Dakka.Path.IndexedPath
+import Dakka.Path.HPathT
 
-class PathSegment a b c | a b -> c where
-    (</>) :: a -> b -> c
+class PathSegment a b where
+    type ResultPath a b
+    type ResultPath a b = a
+    (</>) :: a -> b -> ResultPath a b
 
-instance PathSegment (Path a) a (Path a) where
+instance PathSegment (Path a) a where
     (</>) = (:/)
 
-instance (PathSegment a b c, Functor f) => PathSegment (f a) b (f c) where
-    f </> a = (</> a) <$> f
+(</$>) :: (PathSegment a b, Functor f) => f a -> b -> f (ResultPath a b)
+f </$> a = (</> a) <$> f
 
-instance PathSegment (IndexedPath as) (Proxy a) (IndexedPath (as ':/ a)) where
-    p </> _ = p :// 0
-instance PathSegment (IndexedPath as) (IndexedRef a) (IndexedPath (as ':/ a)) where
-    p </> (IR i) = p :// i
-instance PathSegment (IndexedPath as) (Const Word a) (IndexedPath (as ':/ a)) where
+instance Monoid b
+         => PathSegment (HPathT as b) (Proxy a) where
+    type ResultPath (HPathT as b) (Proxy a) = (HPathT (as ':/ a) b)
+    p </> _ = p :// mempty
+
+instance {-# OVERLAPS #-}
+         PathSegment (HPathT as b) (Const b a) where
+    type ResultPath (HPathT as b) (Const b a) = (HPathT (as ':/ a) b)
     p </> (Const i) = p :// i
 

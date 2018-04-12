@@ -3,14 +3,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -52,7 +47,7 @@ data SystemMessage
 instance Show SystemMessage where
     showsPrec d (Create p)      = showParen (d > 10) 
                                 $ showString "Create "
-                                . showsPrec 0 (typeRep p)
+                                . shows (typeRep p)
     showsPrec d (Send to' msg') = showParen (d > 10)
                                 $ showString "Send {to = "
                                 . showsPrec 11 to'
@@ -83,7 +78,7 @@ instance ( ActorRefConstraints p
 
     create' a = do
         tell [Create a]
-        self </> a
+        self </$> a
 
     p ! m = tell [Send p m]
 

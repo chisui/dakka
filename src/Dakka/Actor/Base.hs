@@ -4,14 +4,11 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -22,8 +19,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.Actor.Base
-    ( PathSegment(..)
-    , IndexedPath(..)
+    ( HPathT(..)
     , root
     , ref
     , ActorRef
@@ -48,21 +44,22 @@ import "base" Control.Applicative ( Const(..) )
 import "mtl" Control.Monad.State.Class ( MonadState )
 
 import Dakka.Constraints
-    ( (:∈), (:⊆)
+    ( (:∈)
     , ImplementsAll, ImplementedByAll
     , RichData, RichData1
     )
 import Dakka.Path
     ( Path(..), Tip, PRoot, root
-    , ref, IndexedPath(..), AllSegmentsImplement
-    , PathSegment(..)
+    , ref, HPathT(..), AllSegmentsImplement
     )
+
+import Dakka.Actor.ActorId ( ActorId )
 
 -- ---------- --
 --  ActorRef  --
 -- ---------- --
 
-type ActorRef p = IndexedPath p
+type ActorRef p = HPathT p ActorId 
 
 type ActorRefConstraints p
   = ( ConsistentActorPath p
