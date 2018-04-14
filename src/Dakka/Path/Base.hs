@@ -1,4 +1,4 @@
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-} -- Implements IsList from GHC.Exts
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -11,13 +11,14 @@
 {-# LANGUAGE DataKinds #-}
 module Dakka.Path.Base where
 
+import "base" GHC.Exts ( IsList(..) )
 import "base" Data.Functor.Classes 
                           ( Show1( liftShowsPrec )
                           , Eq1( liftEq )
                           , Ord1( liftCompare )
                           )
 import "base" Control.Monad ( ap )
-import "base" Data.Foldable ( toList )
+import qualified "base" Data.Foldable as F
 import "base" GHC.Generics ( Generic )
 import "base" Data.Typeable ( Typeable )
 
@@ -40,6 +41,13 @@ type family Tip (p :: Path k) = (t :: k) where
 type family Pop (p :: Path k) :: Path k where
     Pop (as ':/ a) = as
 
+instance IsList (Path a) where
+    type Item (Path a) = a
+    toList = F.toList
+    fromList []     = error "Path has to be nonempty"
+    fromList [a]    = pure a
+    fromList (a:as) = pure a <> fromList as
+
 instance Semigroup (Path a) where
     p <> (Root a)  = p :/ a
     p <> (p' :/ a) = (p <> p') :/ a
@@ -56,8 +64,8 @@ instance Show a => Show (Path a) where
     showsPrec = liftShowsPrec showsPrec showList
 
 instance Show1 Path where
-    liftShowsPrec s _ i p st = '/' : foldl showSegment "" p ++ st
-      where showSegment str e = str ++ s (i-1) e "" ++ "/"
+    liftShowsPrec s _ d p = showParen (d > 10) $ showString ('/' : foldl showSegment "" p)
+      where showSegment str e = str ++ s 11 e "" ++ "/"
 
 instance Eq1 Path where
     liftEq eq a b = liftEq eq (toList a) (toList b)

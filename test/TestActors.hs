@@ -11,9 +11,10 @@
 module TestActors where
 
 import "base" Data.Typeable ( Typeable, Proxy(..) )
+import "base" Data.Function ( on )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (</>), (</$>) )
+import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (</$>) )
 import "dakka" Dakka.AnswerableMessage ( AnswerableMessage(..), answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
@@ -27,7 +28,7 @@ newtype TestActor = TestActor
     } deriving (Show, Eq, Typeable)
 
 instance Semigroup TestActor where
-    (TestActor i) <> (TestActor j) = TestActor (i + j)
+    (<>) = ((.).(.)) TestActor ((+) `on` i)
 
 instance Monoid TestActor where
     mempty = TestActor 0
@@ -107,7 +108,7 @@ instance Actor OtherActor where
     type Message OtherActor = Const Msg
     type Creates OtherActor = '[WithRef]
     onSignal = noop
-    onMessage m = do
+    onMessage _ = do
         p <- create @WithRef
         a <- self
         p ! AnswerableMessage a
