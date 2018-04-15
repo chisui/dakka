@@ -11,7 +11,6 @@
 module TestActors where
 
 import "base" Data.Typeable ( Typeable, Proxy(..) )
-import "base" Data.Function ( on )
 import "base" Control.Applicative ( Const(..) )
 
 import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (</$>) )
@@ -28,7 +27,7 @@ newtype TestActor = TestActor
     } deriving (Show, Eq, Typeable)
 
 instance Semigroup TestActor where
-    (<>) = ((.).(.)) TestActor ((+) `on` i)
+    (TestActor a) <> (TestActor b) = TestActor (a + b)
 
 instance Monoid TestActor where
     mempty = TestActor 0

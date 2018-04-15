@@ -20,22 +20,7 @@ import "dakka" Dakka.Path
 import "dakka" Dakka.Convert
 
 import Spec.Dakka.PathArbitrary ()
-
-testPRoot :: ( (a ~ PRoot ('Root a))  
-             , (a ~ PRoot ('Root a ':/ Int ':/ String)) 
-             ) => a
-testPRoot = undefined
-
-
-testTip :: ( (a ~ Tip ('Root a))
-           , (a ~ Tip ('Root String ':/ Int ':/ a))
-           ) => a
-testTip = undefined
-
-
-testPop :: ( ('Root Int ':/ String) ~ Pop ('Root Int ':/ String ':/ Word)
-           ) => ()
-testPop = ()
+import TestUtils ( (@~?) )
 
 
 tests :: TestTree
@@ -60,9 +45,9 @@ tests = testGroup "Dakka.Path"
             , testProperty "m >>= pure = m" $
                 \ (m :: Path Int) -> (m >>= pure) === m
             , testProperty "m >>= (k >=> h) = (m >>= k) >>= h" $
-                \ (m :: Path Int) k' h' ->
-                    let k = (applyFun k' :: Int -> Path Word)
-                        h = (applyFun h' :: Word -> Path Word)
+                \ (m :: Path ()) k' h' ->
+                    let k = (applyFun k' :: () -> Path Bool)
+                        h = (applyFun h' :: Bool -> Path ())
                     in (m >>= (k >=> h)) === ((m >>= k) >>= h)
             ]
         , testGroup "Show"
@@ -80,6 +65,18 @@ tests = testGroup "Dakka.Path"
                 [ testProperty "as </> a = as :/ a" $
                     \ (as :: Path Int) a -> as </> a === as :/ a
                 ]
+            ]
+        , testGroup "typefamilies"
+            [ testCase "a ~ PRoot ('Root a)" $
+                Proxy @() @~? Proxy @(PRoot ('Root ()))
+            , testCase "a ~ PRoot ('Root a ':/ Int ':/ String)" $
+                Proxy @() @~? Proxy @(PRoot ('Root () ':/ Int ':/ String))
+            , testCase "a ~ Tip ('Root a)" $
+                Proxy @() @~? Proxy @(Tip ('Root ()))
+            , testCase "a ~ Tip ('Root String ':/ Int ':/ a)" $
+                Proxy @() @~? Proxy @(Tip ('Root String ':/ Int ':/ ()))
+            , testCase "('Root Int ':/ String) ~ Pop ('Root Int ':/ String ':/ Word)" $
+                Proxy @('Root Int ':/ String) @~? Proxy @(Pop ('Root Int ':/ String ':/ Word))
             ]
         ]
     , testGroup "HPathT"

@@ -37,7 +37,7 @@ module Dakka.Actor.Base
     ) where
 
 import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable )
+import "base" Data.Typeable ( Typeable, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
@@ -47,6 +47,7 @@ import Dakka.Constraints
     ( (:∈)
     , ImplementsAll, ImplementedByAll
     , RichData, RichData1
+    , (=~=)
     )
 import Dakka.Path
     ( Path(..), Tip, PRoot, root
@@ -54,6 +55,7 @@ import Dakka.Path
     )
 
 import Dakka.Actor.ActorId ( ActorId )
+
 
 -- ---------- --
 --  ActorRef  --
@@ -145,10 +147,20 @@ type Behavior a = forall r. Either (Signal a) (Message a r) -> ActorAction a r
 data Signal (a :: *) where
     Created :: Actor a => Signal a
     Obit    :: ( Actor a
+               , Typeable (p ':/ c)
                , Tip p ~ a
-               , ConsistentActorPath p
-               , ConsistentActorPath (p ':/ c)
+               , ActorRefConstraints (p ':/ c)
                ) => ActorRef (p ':/ c) -> Signal a
+
+instance Eq (Signal a) where
+    Created == Created = True
+    (Obit a) == (Obit b) = a =~= b
+    _ == _ = False
+instance Show (Signal a) where
+    showsPrec d s = showParen (d > 10) $
+        case s of
+            Created  -> showString "Created " . showsPrec 11 (typeRep s)
+            (Obit r) -> showString "Obit "    . showsPrec 11 r
 
 class ( RichData a
       , RichData1 (Message a)
