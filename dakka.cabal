@@ -38,6 +38,7 @@ library
                      , Dakka.Actor.Base
                      , Dakka.Actor.RootActor
                      , Dakka.Actor.ActorId
+                     , Dakka.HasStartState
   build-depends:       base
                      , containers
                      , transformers

@@ -1,7 +1,6 @@
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -9,39 +8,34 @@
 {-# LANGUAGE DataKinds #-}
 module Dakka.AnswerableMessage where
 
-import "base" Data.Typeable ( Typeable, TypeRep )
-import "base" Data.Functor.Classes ( Eq1(..), Show1(..) )
+import "base" Data.Typeable ( Typeable )
 
-import Dakka.Actor ( ActorRefConstraints, Actor, Message, ActorRef, ActorContext( (!) ), ActorId )
+import Dakka.Actor ( ActorRefConstraints, Message, ActorContext( (!), Ref ), ActorRef(..), ActorMessage(..) )
 import Dakka.Path ( Path, PRoot, Tip )
 import Dakka.Convert ( Convertible( convert ) )
 
 
-data AnswerableMessage r a = forall (p :: Path *).
-    ( ActorRefConstraints p
-    , a ~ PRoot p
-    , Actor (Tip p)
-    , Convertible (r (PRoot p)) ((Message (Tip p)) (PRoot p))
+data AnswerableMessage (r :: (Path * -> *) -> Path * -> *) (ref :: Path * -> *) (p :: Path *)
+  = forall (q :: Path *).
+    ( ActorRefConstraints q
+    , PRoot p ~ PRoot q
+    , ActorRef ref
+    , Convertible (r ref p) (Message (Tip q) ref q)
     ) => AnswerableMessage
-        { askerRef :: ActorRef p
+        { askerRef :: ref q
         }
 
-deriving instance (Typeable a, Typeable r) => Typeable (AnswerableMessage a r)
+deriving instance (Typeable r, Typeable ref, Typeable p) => Typeable (AnswerableMessage r ref p)
 
-instance Eq1 (AnswerableMessage a) where
-    liftEq _ (AnswerableMessage a) (AnswerableMessage b) = demotePath a == demotePath b
-      where
-        demotePath :: ActorRefConstraints p => ActorRef p -> Path (TypeRep, ActorId)
-        demotePath = convert
+instance Typeable r => ActorMessage (AnswerableMessage r)
 
-instance Eq (AnswerableMessage a r) where
-    (==) = liftEq undefined
+instance Eq (AnswerableMessage r ref p) where
+    AnswerableMessage a == AnswerableMessage b = a `eqRef` b
 
-instance Show1 (AnswerableMessage a) where
-    liftShowsPrec _ _ d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . shows a
-instance Show (AnswerableMessage a r) where
-    showsPrec = liftShowsPrec undefined undefined
+instance Show (AnswerableMessage r ref p) where
+    showsPrec d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . showsRef 11 a
 
 
-answer :: ActorContext p m => r (PRoot p) -> AnswerableMessage r (PRoot p) -> m ()
+answer :: ActorContext p m => r (Ref m) p -> AnswerableMessage r (Ref m) p -> m ()
 answer r (AnswerableMessage ref) = ref ! convert r 
+

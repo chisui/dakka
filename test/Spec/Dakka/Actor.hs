@@ -1,50 +1,82 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE PackageImports #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-module Spec.Dakka.Actor ( tests ) where
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE KindSignatures #-}
+module Spec.Dakka.Actor where
+
+import "base" GHC.Generics ( Generic )
+import "base" Data.Typeable ( Typeable )
+import "base" Control.Monad ( void )
+import "base" Data.Proxy ( Proxy(..) )
 
 import "tasty" Test.Tasty ( testGroup, TestTree )
-import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Arbitrary(..), oneof ) 
 
 import "dakka" Dakka.Actor
+import "dakka" Dakka.Path
 
 
-instance Arbitrary ActorId where
-    arbitrary = oneof [pure AnyActor, SpecificActor <$> arbitrary] 
+data TrivialActor = TrivialActor
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState TrivialActor
+instance Actor TrivialActor where
+    behavior = noop
+
+
+data CreatesActor = CreatesActor
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState CreatesActor
+instance Actor CreatesActor where
+    type Creates CreatesActor = '[TrivialActor]
+    behavior _ = void $ create @TrivialActor
+
+
+data PlainMessageActor = PlainMessageActor 
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState PlainMessageActor 
+instance Actor PlainMessageActor where
+    type Message PlainMessageActor = PlainMessage String
+    onMessage (PlainMessage "hello") = pure () 
+    onMessage _                      = pure () 
+    onSignal = noop
+
+
+data CustomMessage ref (p :: Path *) = CustomMessage
+    { usageOfRef :: ref ('Root CreatesActor ':/ TrivialActor)
+    , usageOfP   :: Proxy p
+    } deriving (Generic, Typeable)
+instance ActorRef ref => Eq (CustomMessage ref p) where
+    (CustomMessage r _) == (CustomMessage r' _) = r `eqRef` r'
+instance Show (CustomMessage ref p) where
+    show _ = "CustomMessage"
+instance ActorMessage CustomMessage
+
+data CustomMessageActor = CustomMessageActor 
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState CustomMessageActor 
+instance Actor CustomMessageActor where
+    type Message CustomMessageActor = CustomMessage
+    onMessage (CustomMessage _ _) = pure () 
+    onSignal = noop
+
+
+class CustomCapabillity (m :: * -> *) where
+    custom :: m ()
+
+data CustomCapabillitiesActor = CustomCapabillitiesActor 
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState CustomCapabillitiesActor 
+instance Actor CustomCapabillitiesActor where
+    type Capabillities CustomCapabillitiesActor = '[CustomCapabillity]
+    behavior _ = custom
 
 
 tests :: TestTree
-tests = testGroup "Dakka.Actor"
-    [ testGroup "ActorId"
-        [ testGroup "Monoid"
-            [ testProperty "0 <> x = x" $
-                \ (x :: ActorId) -> mempty <> x === x
-            , testProperty "x <> 0 = x" $
-                \ (x :: ActorId) -> x <> mempty === x
-            , testProperty "x <> (y <> z) = (x <> y) <> z" $
-                \ (x :: ActorId) y z -> x <> (y <> z) === (x <> y) <> z
-            , testProperty "mconcat = foldr (<>) 0" $
-                \ (l :: [ActorId]) -> mconcat l === foldr (<>) mempty l
-            ]
-        , testGroup "Show"
-            [ testCase "show AnyActor = \"any\"" $
-                show AnyActor @=? "any"
-            , testCase "show (SpecificActor 42) = \"id 42\"" $
-                show (SpecificActor 42) @=? "id 42"
-            , testCase "show (Just (SpecificActor 42)) = \"Just (id 42)\"" $
-                show (Just (SpecificActor 42)) @=? "Just (id 42)"
-            ]
-        , testGroup "Read"
-            [ testCase "read \"any\" = AnyActor" $
-                read "any" @=? AnyActor
-            , testCase "read \"id 42\" = SpecificActor 42" $
-                read "id 42" @=? SpecificActor 42
-            , testCase "read \"Just (id 42)\" = Just (SpecificActor 42)" $
-                read "Just (id 42)" @=? Just (SpecificActor 42)
-            ]
-        , testProperty "read . show = id" $
-            \ (a :: ActorId) -> (read . show) a === a
-        ]
-    ]
+tests = testGroup "Dakka.Actor" []
 

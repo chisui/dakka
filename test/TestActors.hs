@@ -13,7 +13,7 @@ module TestActors where
 import "base" Data.Typeable ( Typeable, Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, (</$>) )
+import "dakka" Dakka.Actor ( PlainMessage(..), Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
 import "dakka" Dakka.AnswerableMessage ( AnswerableMessage(..), answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
@@ -32,13 +32,16 @@ instance Semigroup TestActor where
 instance Monoid TestActor where
     mempty = TestActor 0
 
+instance HasStartState TestActor where
+    start = mempty
+
 instance Actor TestActor where
-    type Message TestActor = Const String
-    type Creates TestActor = '[OtherActor]
+    type Message TestActor = PlainMessage String
+    type Creates TestActor = '[OtherActor, WithRef]
     type Capabillities TestActor = '[MonadIO]
 
     onSignal = noop
-    onMessage (Const m) = do
+    onMessage (PlainMessage m) = do
 
         -- change interal actor state through MonadState
         modify (TestActor . succ . i)
@@ -50,11 +53,11 @@ instance Actor TestActor where
         -- create a new Actor and send a message to it.
         -- You can only create Actors that are in 'Creates'.
         -- You can also only send messages that the actor can handle to them.
-        create @OtherActor >>= (! (Const $ Msg m))
+        create @OtherActor >>= (! (PlainMessage $ Msg m))
 
         -- Create an Actor reference from a path.
         -- The path has to be consistent.
-        wr <- self </$> Proxy @OtherActor </$> Proxy @WithRef
+        wr <- create @WithRef
 
         -- Send an AnswerableMessage to the refered actor.
         -- The message contains a reference to this actor.
@@ -81,12 +84,12 @@ data TurnstileInput
   deriving (Show, Eq, Typeable)
 
 instance Actor Turnstile where
-    type Message Turnstile = Const TurnstileInput
+    type Message Turnstile = PlainMessage TurnstileInput
     startState = Locked
 
     onSignal = noop
     -- Unlock on Coin. Lock un Push
-    onMessage (Const m) = get >>= \case
+    onMessage (PlainMessage m) = get >>= \case
         Locked -> case m of
                     Coin -> put Unlocked
                     Push -> return ()
@@ -104,13 +107,14 @@ instance Convertible String Msg where
 data OtherActor = OtherActor deriving (Show, Eq, Typeable)
 
 instance Actor OtherActor where
-    type Message OtherActor = Const Msg
+    type Message OtherActor = PlainMessage Msg
     type Creates OtherActor = '[WithRef]
     onSignal = noop
     onMessage _ = do
         p <- create @WithRef
         a <- self
-        p ! AnswerableMessage a
+        let msg = AnswerableMessage a
+        p ! msg 
 
     startState = OtherActor
 
@@ -118,8 +122,8 @@ instance Actor OtherActor where
 -- | Actor that handles references to other Actors
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
-    type Message WithRef = AnswerableMessage (Const String)
+    type Message WithRef = AnswerableMessage (PlainMessage String)
     onSignal = noop
-    onMessage a = Const "hello" `answer` a
+    onMessage a = PlainMessage "hello" `answer` a
     startState = WithRef
 

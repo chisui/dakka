@@ -1,4 +1,5 @@
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
@@ -15,7 +16,7 @@ module Dakka.Constraints where
 
 import "base" Data.Kind -- We need *, that can't be expressed in an import filter
 import "base" Data.Typeable ( Typeable, cast )
-import "base" Data.Functor.Classes ( Eq1(..), Show1 )
+import "base" Data.Functor.Classes ( Eq1(..), Show1, Eq2(..) )
 import "base" Unsafe.Coerce ( unsafeCoerce ) -- used for 'downCast'
 import "base" Data.Function ( on )
 
@@ -66,6 +67,13 @@ a =~~= b = Just a `eq'` cast b
     eq' :: Eq1 f => Maybe (f a) -> Maybe (f a) -> Bool
     eq' = liftEq (liftEq (const $ const False))
 
+(=~~~=) :: (Typeable (f a b), Typeable (g c d), Eq2 f) => f a b -> g c d -> Bool
+a =~~~= b = Just a `eq'` cast b
+  where
+    eq' :: Eq2 f => Maybe (f a b) -> Maybe (f a b) -> Bool
+    eq' = liftEq (liftEq2 no no)
+    no _ _ = False
+
 data ConstrainedDynamic (cs :: [* -> Constraint])
     = forall a. (a `ImplementsAll` cs) => CDyn a
 
@@ -85,4 +93,25 @@ instance (Show :∈ cs) => Show (ConstrainedDynamic cs) where
     show = ("ConstrainedDynamic " ++) . liftConstrained @'[Show] (\ (CDyn a) -> show a)
 
 type RichDynamic = ConstrainedDynamic '[Typeable, Eq, Show]
+
+class ShowShadow (f :: k -> *) where
+    showsShadow :: Int -> f a -> ShowS
+    default showsShadow :: Show (f a) => Int -> f a -> ShowS
+    showsShadow = showsPrec
+
+class ShowShadow2 (f :: k0 -> k1 -> *) where
+    showsShadow2 ::  Int -> f a b -> ShowS
+    default showsShadow2 :: Show (f a b) => Int -> f a b -> ShowS
+    showsShadow2 = showsPrec
+
+
+class EqShadow (f :: k -> *) where
+    eqShadow :: f a -> f a -> Bool 
+    default eqShadow :: Eq (f a) => f a -> f a -> Bool 
+    eqShadow = (==) 
+
+class EqShadow2 (f :: k0 -> k1 -> *) where
+    eqShadow2 ::  f a b -> f a b -> Bool
+    default eqShadow2 :: Eq (f a b) => f a b -> f a b -> Bool 
+    eqShadow2 = (==) 
 
