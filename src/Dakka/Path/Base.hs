@@ -12,6 +12,7 @@
 module Dakka.Path.Base where
 
 import "base" GHC.Exts ( IsList(..) )
+import "base" Data.Monoid ( Endo(..) )
 import "base" Data.Functor.Classes 
                           ( Show1( liftShowsPrec )
                           , Eq1( liftEq )
@@ -64,8 +65,10 @@ instance Show a => Show (Path a) where
     showsPrec = liftShowsPrec showsPrec showList
 
 instance Show1 Path where
-    liftShowsPrec s _ d p = showParen (d > 10) $ showString ('/' : foldl showSegment "" p)
-      where showSegment str e = str ++ s 11 e "" ++ "/"
+    liftShowsPrec s _ d p = showParen (d > 10)
+                          $ showChar '/'
+                          . appEndo (F.fold (fmap (Endo . showsSegment) p))
+      where showsSegment e = s 11 e . showString "/"
 
 instance Eq1 Path where
     liftEq eq a b = liftEq eq (toList a) (toList b)

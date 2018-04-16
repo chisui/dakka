@@ -7,10 +7,10 @@
 module Spec.Dakka.Path ( tests ) where
 
 import "base" Data.Proxy ( Proxy(..) )
-import "base" Data.Typeable ( typeOf ) 
+import "base" Data.Typeable ( typeOf )
 import "base" GHC.Exts ( IsList(..))
-import "base" Control.Monad ( (>=>) ) 
-import "base" Control.Applicative ( Const(..) ) 
+import "base" Control.Monad ( (>=>) )
+import "base" Control.Applicative ( Const(..) )
 
 import "tasty"            Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit"      Test.Tasty.HUnit ( testCase, (@=?) )
@@ -20,7 +20,7 @@ import "dakka" Dakka.Path
 import "dakka" Dakka.Convert
 
 import Spec.Dakka.PathArbitrary ()
-import TestUtils ( (@~?) )
+import TestUtils ( (@~?), testSemigroup )
 
 
 tests :: TestTree
@@ -32,10 +32,9 @@ tests = testGroup "Dakka.Path"
             , testProperty "fromList . toList = id" $
                 \ p -> fromList @(Path Int) (toList p) == p
             ]
-        , testGroup "Semigroup"
-            [ testProperty "x <> (y <> z) = (x <> y) <> z" $
-                \ (x :: Path Int) y z -> x <> (y <> z) === (x <> y) <> z
-            , testProperty "x <> y = fromList (toList x <> toList y)" $
+        , testSemigroup @(Path Int)
+        , testGroup "Semigroup + Foldable"
+            [ testProperty "x <> y = fromList (toList x <> toList y)" $
                 \ (x :: Path Int) y -> x <> y === fromList (toList x <> toList y)
             ]
         , testGroup "Monad"
@@ -107,7 +106,7 @@ tests = testGroup "Dakka.Path"
                 ]
             , testGroup "PathSegment (HPathT as b) (Const b a)"
                 [ testProperty "as </> a = as :// mempty" $
-                    \ (as :: HPathT ('Root Int) Char) (a :: Const Char Word) -> as </> a === as :// getConst a 
+                    \ (as :: HPathT ('Root Int) Char) (a :: Const Char Word) -> as </> a === as :// getConst a
                 ]
             ]
         , testGroup "root"
@@ -118,9 +117,9 @@ tests = testGroup "Dakka.Path"
             ]
         , testGroup "demote"
             [ testCase "typeOfTip (root @Int @()) = Int" $
-                typeOfTip (root @Int @()) @=? typeOf @Int undefined 
+                typeOfTip (root @Int @()) @=? typeOf @Int undefined
             , testCase "typeOfTip (root @() @() </> ref @Int ()) = Int" $
-                typeOfTip (root @() @() </> ref @Int ()) @=? typeOf @Int undefined 
+                typeOfTip (root @() @() </> ref @Int ()) @=? typeOf @Int undefined
             , testCase "demoteTip (root @Int @()) = (Int, ())" $
                 demoteTip (root @Int @()) @=? (typeOf @Int undefined, ())
             , testCase "demoteTip (root @() @() </> ref @Int ()) = (Int, ())" $

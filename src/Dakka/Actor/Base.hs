@@ -1,6 +1,7 @@
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
@@ -44,6 +45,8 @@ import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, typeRep )
 import "base" GHC.Generics ( Generic ) 
 import "base" Data.Proxy ( Proxy(..) )
+import "base" Text.ParserCombinators.ReadP ( readP_to_S, readS_to_P, string )
+import "base" Control.Applicative ( (*>) )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
 
@@ -173,20 +176,35 @@ data Signal (m :: * -> *) (a :: *) where
                , ActorRefConstraints (p ':/ c)
                ) => Ref m (p ':/ c) -> Signal m a
 
+deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
+
 instance Eq (Signal m a) where
-    Created == Created = True
+    Created  == Created  = True
     (Obit a) == (Obit b) = a =~= b
-    _ == _ = False
+    _        == _        = False
+
 instance Show (Signal m a) where
     showsPrec d s = showParen (d > 10) $
         case s of
-            Created  -> showString "Created " . showsPrec 11 (typeRep s)
-            (Obit r) -> showString "Obit "    . showsPrec 11 r
+            Created  -> showString "Created <<"
+                      . showsPrec 11 (typeRep s)
+                      . showString ">>"
+            (Obit r) -> showString "Obit "
+                      . showsPrec 11 r
 
 newtype PlainMessage m r p = PlainMessage
-    { getPlainMessage :: m
-    }
-  deriving (Eq, Ord, Show, Read, Typeable, Generic)
+    { getPlainMessage :: m }
+  deriving (Eq, Ord, Typeable, Generic)
+
+instance Show m => Show (PlainMessage m r p) where
+    showsPrec d (PlainMessage m) = showParen (d > 10)
+                                 $ showString "PlainMessage "
+                                 . showsPrec 11 m
+
+instance Read m => Read (PlainMessage m r p) where
+    readsPrec d = readParen (d > 10)
+                $ readP_to_S
+                $ string "PlainMessage " *> fmap PlainMessage (readS_to_P reads)
 
 instance (Typeable m, Eq m, Show m) => ActorMessage (PlainMessage m)
 
@@ -205,8 +223,7 @@ class Typeable m => ActorMessage (m :: (Path * -> *) -> Path * -> *) where
 class ( RichData a
       , ActorMessage (Message a)
       , Actor `ImplementedByAll` Creates a
-      ) => Actor
-             (a :: *)
+      ) => Actor (a :: *)
     where
       {-# MINIMAL behavior | (onMessage, onSignal) #-}
 

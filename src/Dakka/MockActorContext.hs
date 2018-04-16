@@ -1,5 +1,6 @@
 {-# LANGUAGE Trustworthy #-} -- Generalized newtype deriving for MockActorContext
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.MockActorContext where
@@ -29,7 +31,6 @@ import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Actor
 import Dakka.Path
-import Dakka.Constraints
 
 
 -- | Encapsulates an interaction of a behavior with the context
@@ -46,8 +47,9 @@ data SystemMessage
 
 instance Show SystemMessage where
     showsPrec d (Create p)      = showParen (d > 10) 
-                                $ showString "Create "
+                                $ showString "Create <<"
                                 . shows (typeRep p)
+                                . showString ">>"
     showsPrec d (Send to' msg') = showParen (d > 10)
                                 $ showString "Send {to = "
                                 . showsPrec 11 to'
@@ -72,9 +74,13 @@ instance MonadState a (MockActorContext (as ':/ a)) where
     state = MockActorContext . state
 
 newtype ActorPath p = ActorPath { path :: HPathT p ActorId }
-    deriving (Eq, Show, Typeable)
+    deriving (Eq, Typeable)
 
-instance ActorRef ActorPath where
+instance ActorRef ActorPath
+instance (p `AllSegmentsImplement` Typeable) => Show (ActorPath p) where
+    showsPrec d (ActorPath p) = showParen (d > 10)
+                              $ showString "ActorPath "
+                              . shows p
 
 instance ( ActorRefConstraints p
          , MonadState (Tip p) (MockActorContext p)
@@ -96,4 +102,10 @@ execMock ar (MockActorContext ctx) = runWriter . execStateT (runReaderT ctx ar)
 
 execMock' :: forall p b. Actor (Tip p) => ActorPath p -> MockActorContext p b -> (Tip p, [SystemMessage])
 execMock' ar ctx = execMock ar ctx startState
+
+execMockRoot :: forall a b. MockActorContext ('Root a) b -> a -> (a, [SystemMessage])
+execMockRoot = execMock $ ActorPath (root @a)
+
+execMockRoot' :: forall a b. Actor a => MockActorContext ('Root a) b -> (a, [SystemMessage])
+execMockRoot' ctx = execMockRoot ctx startState
 
