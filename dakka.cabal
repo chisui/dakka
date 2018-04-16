@@ -37,7 +37,6 @@ library
                      , Dakka.Path.HPathT
                      , Dakka.Actor.Base
                      , Dakka.Actor.RootActor
-                     , Dakka.Actor.ActorId
                      , Dakka.HasStartState
   build-depends:       base
                      , containers

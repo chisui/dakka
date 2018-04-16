@@ -2,14 +2,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeApplications #-}
-module TestUtils ( (@~?), testMonoid, testSemigroup ) where
+{-# LANGUAGE TypeFamilies #-}
+module TestUtils ( (@~?), testMonoid, testSemigroup, testIsList ) where
 
 import "base" Data.Typeable ( Typeable, typeRep )
+import "base" GHC.Exts ( IsList(..) )
+
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( assertEqual, Assertion )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( Arbitrary, testProperty, (===) )
+import "tasty-quickcheck" Test.Tasty.QuickCheck ( Arbitrary, testProperty, (===), NonEmptyList(..) )
+
 
 (@~?) :: forall (a :: k0) (b :: k1) proxy0 proxy1. (Typeable a, Typeable b) => proxy0 a -> proxy1 b -> Assertion
 a @~? b = assertEqual "" (typeRep a) (typeRep b)
@@ -32,3 +37,17 @@ testMonoid = testGroup "Monoid"
     , testProperty "mconcat = foldr (<>) 0" $
         \ (l :: [a]) -> mconcat l === foldr (<>) mempty l
     ]
+
+testIsList :: forall a.
+    ( IsList a
+    , Arbitrary a, Arbitrary (Item a)
+    , Show a, Show (Item a)
+    , Eq a, Eq (Item a)
+    ) => TestTree
+testIsList = testGroup "IsList"
+    [ testProperty "toList . fromList = id" $
+        \ (NonEmpty l) -> toList @a (fromList l) == l
+    , testProperty "fromList . toList = id" $
+        \ p -> fromList @a (toList p) == p
+    ]
+

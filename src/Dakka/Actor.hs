@@ -5,7 +5,6 @@ module Dakka.Actor
     ) where
 
 import Dakka.Path ( PathSegment(..), (</$>) )
-import Dakka.Actor.ActorId as Exp
 import Dakka.Actor.Base as Exp
 import Dakka.Actor.RootActor as Exp
 import Dakka.HasStartState as Exp

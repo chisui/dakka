@@ -8,30 +8,25 @@ module Spec.Dakka.Path ( tests ) where
 
 import "base" Data.Proxy ( Proxy(..) )
 import "base" Data.Typeable ( typeOf )
-import "base" GHC.Exts ( IsList(..))
+import "base" GHC.Exts ( IsList(..) )
 import "base" Control.Monad ( (>=>) )
 import "base" Control.Applicative ( Const(..) )
 
 import "tasty"            Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit"      Test.Tasty.HUnit ( testCase, (@=?) )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, NonEmptyList(..), (===), Fun, applyFun )
+import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Fun, applyFun )
 
 import "dakka" Dakka.Path
 import "dakka" Dakka.Convert
 
 import Spec.Dakka.PathArbitrary ()
-import TestUtils ( (@~?), testSemigroup )
+import TestUtils ( (@~?), testSemigroup, testIsList )
 
 
 tests :: TestTree
 tests = testGroup "Dakka.Path"
     [ testGroup "Path"
-        [ testGroup "IsList"
-            [ testProperty "toList . fromList = id" $
-                \ (NonEmpty l) -> toList @(Path Int) (fromList l) == l
-            , testProperty "fromList . toList = id" $
-                \ p -> fromList @(Path Int) (toList p) == p
-            ]
+        [ testIsList @(Path Int)
         , testSemigroup @(Path Int)
         , testGroup "Semigroup + Foldable"
             [ testProperty "x <> y = fromList (toList x <> toList y)" $

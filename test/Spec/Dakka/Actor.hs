@@ -60,6 +60,14 @@ instance Actor PlainMessageActor where
     onSignal = noop
 
 
+newtype CustomStateActor = CustomStateActor Int
+    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+instance HasStartState CustomStateActor where
+    start = CustomStateActor 0
+instance Actor CustomStateActor where
+    behavior = noop
+
+
 data CustomMessage ref (p :: Path *) = CustomMessage
     { usageOfRef :: ref ('Root CreatesActor ':/ TrivialActor)
     , usageOfP   :: Proxy p
