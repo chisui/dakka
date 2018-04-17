@@ -1,2 +1,2 @@
 language: nix
-script: nix-shell --run "cabal test"
+script: nix-build -A tarball shell.nix
