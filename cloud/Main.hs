@@ -1,14 +1,53 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
-module Main ( main ) where
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+module Main where
 
 import "base" Data.Functor ( void )
+import "base" Control.Applicative ( Const(..) )
+
+import "transformers" Control.Monad.Trans.State.Lazy ( StateT, runStateT )
+import "transformers" Control.Monad.Trans.Reader ( ReaderT )
+import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
+import "transformers" Control.Monad.Trans.Class ( lift )
+
+import "mtl" Control.Monad.State.Class ( MonadState(..) )
+import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
 
 import "network-transport-tcp" Network.Transport.TCP (createTransport, defaultTCPParameters)
 import "distributed-process" Control.Distributed.Process
 import "distributed-process" Control.Distributed.Process.Node
 
+import qualified "dakka" Dakka.Actor as A
+import "dakka" Dakka.Path
+
+
+type ActorPid (p :: Path *) = Const ProcessId p
+instance A.ActorRef (Const ProcessId) 
+
+newtype DistributedActorContext (p :: Path *) a = DistributedActorContext (StateT (Tip p) Process a)
+  deriving (Functor, Applicative, Monad)
+
+instance (a ~ Tip p) => MonadState a (DistributedActorContext p) where
+    state = DistributedActorContext . state
+
+liftProcess = DistributedActorContext . lift
+
+instance ( A.ActorRefConstraints p
+         , MonadState (Tip p) (DistributedActorContext p)
+         ) => A.ActorContext p (DistributedActorContext p) where
+    type CtxRef  (DistributedActorContext p) = Const ProcessId
+    type CtxPath (DistributedActorContext p) = p 
+    self = Const <$> liftProcess getSelfPid
+    (Const pid) ! m = liftProcess $ send pid m
 
 main :: IO ()
 main = do

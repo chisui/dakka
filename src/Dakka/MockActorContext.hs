@@ -40,13 +40,14 @@ import Dakka.Path
 -- | Encapsulates an interaction of a behavior with the context
 data SystemMessage
     = forall a. Actor a => Create (Proxy a)
-    | forall p. 
+    | forall p m. 
         ( ActorRefConstraints p
+        , Typeable m
         , Actor (Tip p)
         , Actor (PRoot p)
         ) => Send
             { to  :: ActorPath p
-            , msg :: Message (Tip p) ActorPath p
+            , msg :: Message (Tip p) m
             }
 
 instance Show SystemMessage where
@@ -96,7 +97,9 @@ instance (a ~ Tip p) => MonadState a (MockActorContext p) where
 instance ( ActorRefConstraints p
          , MonadState (Tip p) (MockActorContext p)
          ) => ActorContext p (MockActorContext p) where
-    type Ref (MockActorContext p) = ActorPath
+    type CtxRef  (MockActorContext p) = ActorPath
+    type CtxPath (MockActorContext p) = p
+
     self = ask
 
     create' a = do

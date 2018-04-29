@@ -106,12 +106,13 @@ instance Typeable a => Actor (GenericActor a) where
 
 instance (Typeable a, Eq a, Show a) => ActorRef (Const a) 
 
-instance Arbitrary m => Arbitrary (PlainMessage m (r ::k0) (p ::k1)) where
+instance Arbitrary m => Arbitrary (PlainMessage m (r :: k)) where
     arbitrary = PlainMessage <$> arbitrary
 
 data DummyContext (p :: Path *) a = DummyContext
 instance (MonadState (Tip p) (DummyContext p), ActorRefConstraints p) => ActorContext p (DummyContext p) where
-    type Ref (DummyContext p) = Const Bool 
+    type CtxRef  (DummyContext p) = Const Bool 
+    type CtxPath (DummyContext p) = p
     self      = DummyContext
     create' _ = DummyContext
     send _ _  = DummyContext

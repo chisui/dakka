@@ -19,8 +19,8 @@ import "base" Data.Proxy ( Proxy(..) )
 import "base" Data.Void ( Void ) 
 
 import Dakka.Actor.Base ( Actor( Creates, Message, behavior )
-                        , Signal(..), ActorAction
-                        , create, PlainMessage, noop
+                        , Signal(..), ActorAction, PlainMessage
+                        , create, noop
                         )
 import Dakka.Constraints ( (:⊆), ImplementedByAll )
 import Dakka.HasStartState ( HasStartState )

@@ -2,8 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -29,10 +29,10 @@ module Dakka.Actor.Base
     , ActorRefConstraints
     , ActorContext(..)
     , create
-    , ActorMessage(..)
-    , PlainMessage(..)
     , Actor(..)
     , ActorAction
+    , PlainMessage(..)
+    , ActorMessage(..)
     , Behavior
     , behaviorOf
     , LeafActor
@@ -43,12 +43,13 @@ module Dakka.Actor.Base
 
 import "base" Data.Kind ( Constraint )
 import "base" Data.Typeable ( Typeable, typeRep )
-import "base" GHC.Generics ( Generic ) 
 import "base" Data.Proxy ( Proxy(..) )
+import "base" GHC.Generics ( Generic )
 import "base" Text.ParserCombinators.ReadP ( readP_to_S, readS_to_P, string )
-import "base" Control.Applicative ( (*>) )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
+
+import "binary" Data.Binary ( Binary )
 
 import Dakka.Constraints
     ( (:∈)
@@ -61,8 +62,8 @@ import Dakka.Path
     , ref, HPathT(..), AllSegmentsImplement
     )
 
-import Dakka.Convert ( Convertible(..) )
 import Dakka.HasStartState ( HasStartState(..) )
+import Dakka.Convert ( Convertible(..) )
 
 
 -- ---------- --
@@ -111,48 +112,62 @@ class Typeable ref => ActorRef (ref :: Path * -> *) where
 -- 
 class ( ActorRefConstraints p 
       , MonadState (Tip p) m
-      , ActorRef (Ref m)
+      , ActorRef (CtxRef m)
+      , Typeable m
       ) => ActorContext 
           (p :: Path *)
           (m :: * -> *)
       | m -> p
     where
       {-# MINIMAL self, create', (send | (!)) #-}
-      type Ref m :: Path * -> *
+      type CtxRef  m :: Path * -> *
+      type CtxPath m :: Path *
 
       -- | reference to the currently running 'Actor'
-      self :: ConsistentActorPath p => m (Ref m p)
+      self :: ConsistentActorPath p => m (CtxRef m p)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
       create' :: ( Actor b
                  , b :∈ Creates (Tip p)
                  , ActorRefConstraints (p ':/ b)
-                 ) => Proxy b -> m (Ref m (p ':/ b))
+                 ) => Proxy b -> m (CtxRef m (p ':/ b))
 
       -- | Send a message to another actor
       send :: ( PRoot p ~ PRoot b
               , Actor (Tip b)
+              , Binary (Message (Tip b) m)
               , ActorRefConstraints b
-              ) => Ref m b -> Message (Tip b) (Ref m) b -> m ()
+              ) => CtxRef m b -> Message (Tip b) m -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
       (!) :: ( PRoot p ~ PRoot b
              , Actor (Tip b)
+             , Binary (Message (Tip b) m)
              , ActorRefConstraints b
-             ) => Ref m b -> Message (Tip b) (Ref m) b -> m () 
+             ) => CtxRef m b -> Message (Tip b) m -> m () 
       (!) = send
 
 create :: ( Actor b
           , ActorContext p m 
           , b :∈ Creates (Tip p)
           , ConsistentActorPath (p ':/ b)
-          ) => m (Ref m (p ':/ b))
+          ) => m (CtxRef m (p ':/ b))
 create = create' Proxy
 
 -- ------- --
 --  Actor  --
 -- ------- --
+
+class Typeable m => ActorMessage (m :: (* -> *) -> *) where
+    eqMsg :: m p -> m p -> Bool
+    default eqMsg :: Eq (m p) => m p -> m p -> Bool
+    eqMsg = (==)
+    
+    showsMsg :: Int -> m p -> ShowS
+    default showsMsg :: Show (m p) => Int -> m p -> ShowS
+    showsMsg = showsPrec
+
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
@@ -163,18 +178,18 @@ type ActorAction (m :: * -> *) (a :: *) (p :: Path *)
     , m `ImplementsAll` Capabillities a
     ) => m ()
 
-type Behavior a = forall (m :: * -> *) (p :: Path *). Either (Signal m a) (Message a (Ref m) p) -> ActorAction m a p
+type Behavior a = forall (m :: * -> *) (p :: Path *). Either (Signal m a) (Message a m) -> ActorAction m a p
 
 data Signal (m :: * -> *) (a :: *) where
     Created :: Actor a => Signal m a
     Obit    :: ( Actor a
                , Typeable (p ':/ c)
-               , Typeable (Ref m)
-               , Eq (Ref m (p ':/ c))
-               , Show (Ref m (p ':/ c))
+               , Typeable (CtxRef m)
+               , Eq (CtxRef m (p ':/ c))
+               , Show (CtxRef m (p ':/ c))
                , Tip p ~ a
                , ActorRefConstraints (p ':/ c)
-               ) => Ref m (p ':/ c) -> Signal m a
+               ) => CtxRef m (p ':/ c) -> Signal m a
 
 deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
 
@@ -192,33 +207,25 @@ instance Show (Signal m a) where
             (Obit r) -> showString "Obit "
                       . showsPrec 11 r
 
-newtype PlainMessage m r p = PlainMessage
+newtype PlainMessage m p = PlainMessage
     { getPlainMessage :: m }
   deriving (Eq, Ord, Typeable, Generic)
 
-instance Show m => Show (PlainMessage m r p) where
+instance Show m => Show (PlainMessage m p) where
     showsPrec d (PlainMessage m) = showParen (d > 10)
                                  $ showString "PlainMessage "
                                  . showsPrec 11 m
 
-instance Read m => Read (PlainMessage m r p) where
+instance Read m => Read (PlainMessage m p) where
     readsPrec d = readParen (d > 10)
                 $ readP_to_S
                 $ string "PlainMessage " *> fmap PlainMessage (readS_to_P reads)
 
-instance (Typeable m, Eq m, Show m) => ActorMessage (PlainMessage m)
+instance (Typeable m, Show m, Eq m) => ActorMessage (PlainMessage m)
+instance Binary m => Binary (PlainMessage m p)
 
-instance Convertible a b => Convertible (PlainMessage a r p) (PlainMessage b x y) where
+instance Convertible a b => Convertible (PlainMessage a p) (PlainMessage b q) where
     convert (PlainMessage m) = PlainMessage $ convert m
-
-class Typeable m => ActorMessage (m :: (Path * -> *) -> Path * -> *) where
-    eqMsg :: ActorRef r => m r p -> m r p -> Bool
-    default eqMsg :: Eq (m r p) => m r p -> m r p -> Bool
-    eqMsg = (==)
-    
-    showsMsg :: ActorRef r => Int -> m r p -> ShowS
-    default showsMsg :: Show (m r p) => Int -> m r p -> ShowS
-    showsMsg = showsPrec
 
 class ( RichData a
       , ActorMessage (Message a)
@@ -232,7 +239,7 @@ class ( RichData a
       type Creates a = '[]
   
       -- | Type of Message this Actor may recieve
-      type Message a :: (Path * -> *) -> Path * -> *
+      type Message a :: (* -> *) -> *
       type Message a = PlainMessage ()
 
       -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
@@ -240,7 +247,7 @@ class ( RichData a
       type Capabillities a = '[]
 
       -- | What this Actor does when recieving a message
-      onMessage :: Message a (Ref m) p -> ActorAction m a p
+      onMessage :: Message a m -> ActorAction m a p
       onMessage = behavior . Right
 
       -- | What this Actor does when recieving a Signal
@@ -248,7 +255,7 @@ class ( RichData a
       onSignal = behavior . Left
 
       -- | The behavior of this Actor
-      behavior :: Either (Signal m a) (Message a (Ref m) p) -> ActorAction m a p
+      behavior :: Either (Signal m a) (Message a m) -> ActorAction m a p
       behavior = either onSignal onMessage
 
       startState :: a

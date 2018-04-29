@@ -3,39 +3,36 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
-module Dakka.AnswerableMessage where
+{-# LANGUAGE RankNTypes #-}
+module Dakka.AnswerableMessage
+    ( AnswerableMessage
+    , answerableMessage
+    , answer
+    ) where
 
 import "base" Data.Typeable ( Typeable )
 
-import Dakka.Actor ( ActorRefConstraints, Message, ActorContext( (!), Ref ), ActorRef(..), ActorMessage(..) )
-import Dakka.Path ( Path, PRoot, Tip )
-import Dakka.Convert ( Convertible( convert ) )
+import Dakka.Actor ( ActorContext(..), ActorMessage )
 
 
-data AnswerableMessage (r :: (Path * -> *) -> Path * -> *) (ref :: Path * -> *) (p :: Path *)
-  = forall (q :: Path *).
-    ( ActorRefConstraints q
-    , PRoot p ~ PRoot q
-    , ActorRef ref
-    , Convertible (r ref p) (Message (Tip q) ref q)
-    ) => AnswerableMessage
-        { askerRef :: ref q
-        }
+data AnswerableMessage (r :: (* -> *) -> *) (m :: * -> *)
+    = AnswerableMessage
+  deriving (Eq, Show, Typeable)
 
-deriving instance (Typeable r, Typeable ref, Typeable p) => Typeable (AnswerableMessage r ref p)
+deriving instance Typeable (AnswerableMessage r m)
 
 instance Typeable r => ActorMessage (AnswerableMessage r)
 
-instance Eq (AnswerableMessage r ref p) where
-    AnswerableMessage a == AnswerableMessage b = a `eqRef` b
 
-instance Show (AnswerableMessage r ref p) where
-    showsPrec d (AnswerableMessage a) = showParen (d > 10) $ ("AnswerableMessage " ++) . showsRef 11 a
+answerableMessage :: ref (CtxPath m) -> AnswerableMessage r m 
+answerableMessage _ = AnswerableMessage
 
-
-answer :: ActorContext p m => r (Ref m) p -> AnswerableMessage r (Ref m) p -> m ()
-answer r (AnswerableMessage ref) = ref ! convert r 
+answer :: ActorContext p m => r m -> AnswerableMessage r m -> m ()
+answer = undefined 
 

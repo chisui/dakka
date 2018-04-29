@@ -14,7 +14,7 @@ import "base" Data.Typeable ( Typeable, Proxy(..) )
 import "base" Control.Applicative ( Const(..) )
 
 import "dakka" Dakka.Actor ( PlainMessage(..), Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
-import "dakka" Dakka.AnswerableMessage ( AnswerableMessage(..), answer )
+import "dakka" Dakka.AnswerableMessage ( AnswerableMessage, answerableMessage, answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
@@ -61,7 +61,7 @@ instance Actor TestActor where
 
         -- Send an AnswerableMessage to the refered actor.
         -- The message contains a reference to this actor.
-        AnswerableMessage <$> self >>= send wr
+        answerableMessage <$> self >>= send wr
 
 apply :: forall proxy a b. (Convertible a b, Show b) => proxy b -> a -> IO ()
 apply _ = print . (convert :: a -> b)
@@ -113,8 +113,7 @@ instance Actor OtherActor where
     onMessage _ = do
         p <- create @WithRef
         a <- self
-        let msg = AnswerableMessage a
-        p ! msg 
+        p ! answerableMessage a
 
     startState = OtherActor
 

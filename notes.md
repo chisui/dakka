@@ -276,3 +276,17 @@ With `ActorRef` now representing a path we made the creation of actors a little 
 
 We would like to constrain `ActorRefs` even further such that they have to be internally consistent.
 
+
+## Serializing AnswerableMessage
+
+Since all messages have to be serializable in some form or another we have to find a way to serialize `AnswerableMessage`. The easiest way to serialize it would be to derive `Generic` and use some generic serialization mechanism. This would also impose the least assumptions on the serialization mechanism itself. In the case of `AnswerableMessage` this is not possible though. It is currently not possible to derive `Generic` for datatypes with existential quantification. Even if deriving generic would be possible we still would have a problem since the existential quantification on `AnswerableMessage` captures an instance of `Convertible` which can't be serialized at all. To be able to serialize this class of messages we have to rely on another mechanism.
+
+Fortunatly cloud haskell already has a solution for this kind of problem. The *distributed-static* library provides means to serialze essentially anything as long as its value is known at compile time. So we can serialize the `convert` function since any concrete `Convertible` instance has to be known at compile time. Using this serialization mechanism somewhat locks into the cloud haskell ecosystem though. *dakka* itself would have to depend on cloud haskell packages.
+
+To be able to use `Static` we have to refactor `AnswerableMessage` a bit.
+
+1. We now can get rid of the `Convertible` constraint on the datatype itself and move it to a smart constructor that binds the `convert` function to a static value.
+2. Since static values are stored inside a `RemoteTable` we need a way to access to one to be able to send a message. This can be achieved by creating a Monad class `RemoteTableState` that provides access to one. An `Actor` that wants to answer an `AnswerableMessage` has to have the `RemoteTableState` capabillity now.
+
+   Implementing `RemoteTableState` for `MockActorContext` is straight forward. We just add a `StateT RemoteTable` to the monad transfomer chain. In the cloud haskell case it's even more straight forward since they already manage a `RemoteTable`.
+
