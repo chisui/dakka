@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -11,6 +11,7 @@
 module TestActors where
 
 import "base" Data.Typeable ( Typeable, Proxy(..) )
+import "base" GHC.Generics ( Generic )
 import "base" Control.Applicative ( Const(..) )
 
 import "dakka" Dakka.Actor ( PlainMessage(..), Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
@@ -19,6 +20,7 @@ import "dakka" Dakka.Convert ( Convertible(..) )
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 import "mtl" Control.Monad.State.Class ( modify, get, put )
+import "binary" Data.Binary ( Binary )
 
 
 -- | Actor with all bells and whistles.
@@ -100,11 +102,12 @@ instance Actor Turnstile where
 
 -- | Actor with custom message type.
 -- This one also communicates with another actor and expects a response.
-newtype Msg = Msg String deriving (Show, Eq, Typeable)
+newtype Msg = Msg String deriving (Show, Eq, Generic)
+instance Binary Msg
 instance Convertible String Msg where
     convert = Msg
 
-data OtherActor = OtherActor deriving (Show, Eq, Typeable)
+data OtherActor = OtherActor deriving (Show, Eq, Generic)
 
 instance Actor OtherActor where
     type Message OtherActor = PlainMessage Msg

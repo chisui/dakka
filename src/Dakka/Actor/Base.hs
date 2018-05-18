@@ -110,30 +110,29 @@ class Typeable ref => ActorRef (ref :: Path * -> *) where
 --
 --     * create new actors.
 -- 
-class ( ActorRefConstraints p 
-      , MonadState (Tip p) m
-      , ActorRef (CtxRef m)
+class ( ActorRefConstraints (CtxPath m) 
+      , MonadState (Tip (CtxPath m)) m
       , Typeable m
-      ) => ActorContext 
-          (p :: Path *)
-          (m :: * -> *)
-      | m -> p
+      , ActorRef (CtxRef m)
+      ) => ActorContext (m :: * -> *)
     where
       {-# MINIMAL self, create', (send | (!)) #-}
-      type CtxRef  m :: Path * -> *
       type CtxPath m :: Path *
+      data CtxRef m (p :: Path *) :: *
 
       -- | reference to the currently running 'Actor'
-      self :: ConsistentActorPath p => m (CtxRef m p)
+      self :: m (CtxRef m (CtxPath m))
 
       -- | Creates a new `Actor` of type 'b' with provided start state
       create' :: ( Actor b
+                 , p ~ CtxPath m
                  , b :∈ Creates (Tip p)
                  , ActorRefConstraints (p ':/ b)
                  ) => Proxy b -> m (CtxRef m (p ':/ b))
 
       -- | Send a message to another actor
       send :: ( PRoot p ~ PRoot b
+              , p ~ CtxPath m
               , Actor (Tip b)
               , Binary (Message (Tip b) m)
               , ActorRefConstraints b
@@ -142,14 +141,17 @@ class ( ActorRefConstraints p
 
       -- | Alias for 'send' to enable akka style inline send.
       (!) :: ( PRoot p ~ PRoot b
+             , p ~ CtxPath m
              , Actor (Tip b)
              , Binary (Message (Tip b) m)
              , ActorRefConstraints b
              ) => CtxRef m b -> Message (Tip b) m -> m () 
       (!) = send
 
+
 create :: ( Actor b
-          , ActorContext p m 
+          , ActorContext m
+          , p ~ CtxPath m
           , b :∈ Creates (Tip p)
           , ConsistentActorPath (p ':/ b)
           ) => m (CtxRef m (p ':/ b))
@@ -159,35 +161,33 @@ create = create' Proxy
 --  Actor  --
 -- ------- --
 
-class Typeable m => ActorMessage (m :: (* -> *) -> *) where
-    eqMsg :: m p -> m p -> Bool
-    default eqMsg :: Eq (m p) => m p -> m p -> Bool
+class Typeable msg => ActorMessage (msg :: (* -> *) -> *) where
+    eqMsg :: ActorContext m => msg m -> msg m -> Bool
+    default eqMsg :: (ActorContext m, Eq (msg m)) => msg m -> msg m -> Bool
     eqMsg = (==)
     
-    showsMsg :: Int -> m p -> ShowS
-    default showsMsg :: Show (m p) => Int -> m p -> ShowS
+    showsMsg :: ActorContext m => Int -> msg m -> ShowS
+    default showsMsg :: (ActorContext m, Show (msg m)) => Int -> msg m -> ShowS
     showsMsg = showsPrec
 
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type ActorAction (m :: * -> *) (a :: *) (p :: Path *)
+type ActorAction (m :: * -> *) (a :: *)
   = ( Actor a
-    , Tip p ~ a
-    , ActorContext p m
+    , Tip (CtxPath m) ~ a
+    , ActorContext m
     , m `ImplementsAll` Capabillities a
     ) => m ()
 
-type Behavior a = forall (m :: * -> *) (p :: Path *). Either (Signal m a) (Message a m) -> ActorAction m a p
+type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a m) -> ActorAction m a
 
 data Signal (m :: * -> *) (a :: *) where
     Created :: Actor a => Signal m a
     Obit    :: ( Actor a
                , Typeable (p ':/ c)
-               , Typeable (CtxRef m)
-               , Eq (CtxRef m (p ':/ c))
-               , Show (CtxRef m (p ':/ c))
                , Tip p ~ a
+               , ActorRef (CtxRef m)
                , ActorRefConstraints (p ':/ c)
                ) => CtxRef m (p ':/ c) -> Signal m a
 
@@ -195,7 +195,7 @@ deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
 
 instance Eq (Signal m a) where
     Created  == Created  = True
-    (Obit a) == (Obit b) = a =~= b
+    (Obit a) == (Obit b) = a `eqRef` b
     _        == _        = False
 
 instance Show (Signal m a) where
@@ -205,7 +205,7 @@ instance Show (Signal m a) where
                       . showsPrec 11 (typeRep s)
                       . showString ">>"
             (Obit r) -> showString "Obit "
-                      . showsPrec 11 r
+                      . showsRef 11 r
 
 newtype PlainMessage m p = PlainMessage
     { getPlainMessage :: m }
@@ -247,15 +247,15 @@ class ( RichData a
       type Capabillities a = '[]
 
       -- | What this Actor does when recieving a message
-      onMessage :: Message a m -> ActorAction m a p
+      onMessage :: Message a m -> ActorAction m a
       onMessage = behavior . Right
 
       -- | What this Actor does when recieving a Signal
-      onSignal :: Signal m a -> ActorAction m a p 
+      onSignal :: Signal m a -> ActorAction m a
       onSignal = behavior . Left
 
       -- | The behavior of this Actor
-      behavior :: Either (Signal m a) (Message a m) -> ActorAction m a p
+      behavior :: Either (Signal m a) (Message a m) -> ActorAction m a
       behavior = either onSignal onMessage
 
       startState :: a

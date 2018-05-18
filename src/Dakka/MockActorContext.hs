@@ -40,14 +40,14 @@ import Dakka.Path
 -- | Encapsulates an interaction of a behavior with the context
 data SystemMessage
     = forall a. Actor a => Create (Proxy a)
-    | forall p m. 
-        ( ActorRefConstraints p
-        , Typeable m
-        , Actor (Tip p)
-        , Actor (PRoot p)
+    | forall p q. 
+        ( ActorRefConstraints q
+        , ActorRefConstraints p
+        , Actor (Tip q)
+        , Actor (PRoot q)
         ) => Send
-            { to  :: ActorPath p
-            , msg :: Message (Tip p) m
+            { to  :: CtxRef (MockActorContext p) q
+            , msg :: Message (Tip q) (MockActorContext p) 
             }
 
 instance Show SystemMessage where
@@ -72,12 +72,8 @@ instance Eq SystemMessage where
 -- ActorPath --
 ---------------
 
-newtype ActorPath p = ActorPath
-    { path :: HPathT p () }
-  deriving (Eq, Typeable)
-
-instance ActorRef ActorPath
-instance (p `AllSegmentsImplement` Typeable) => Show (ActorPath p) where
+instance (p `AllSegmentsImplement` Typeable, Typeable p) => ActorRef (CtxRef (MockActorContext p))
+instance (q `AllSegmentsImplement` Typeable) => Show (CtxRef (MockActorContext p) q) where
     showsPrec d (ActorPath p) = showParen (d > 10)
                               $ showString "ActorPath "
                               . shows p
@@ -88,17 +84,20 @@ instance (p `AllSegmentsImplement` Typeable) => Show (ActorPath p) where
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
 newtype MockActorContext p v = MockActorContext
-    (ReaderT (ActorPath p) (StateT (Tip p) (Writer [SystemMessage])) v)
-  deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadReader (ActorPath p))
+    (ReaderT (CtxRef (MockActorContext p) p) (StateT (Tip p) (Writer [SystemMessage])) v)
+  deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadReader (CtxRef (MockActorContext p) p))
 
 instance (a ~ Tip p) => MonadState a (MockActorContext p) where
     state = MockActorContext . state
 
 instance ( ActorRefConstraints p
          , MonadState (Tip p) (MockActorContext p)
-         ) => ActorContext p (MockActorContext p) where
-    type CtxRef  (MockActorContext p) = ActorPath
+         ) => ActorContext (MockActorContext p) where
     type CtxPath (MockActorContext p) = p
+    data CtxRef (MockActorContext p) q = ActorPath
+        { path :: HPathT q () }
+      deriving (Eq, Typeable)
+
 
     self = ask
 
@@ -111,11 +110,11 @@ instance ( ActorRefConstraints p
 
 type MockResult a = (a, [SystemMessage])
 
-runMock :: forall p b. ActorPath p -> MockActorContext p b -> Tip p -> (b, MockResult (Tip p))
+runMock :: forall p b. CtxRef (MockActorContext p) p -> MockActorContext p b -> Tip p -> (b, MockResult (Tip p))
 runMock ar (MockActorContext ctx) a = swapResult $ runWriter $ runStateT (runReaderT ctx ar) a
   where swapResult ((res, a'), msgs) = (res, (a', msgs))
 
-runMock' :: forall p b. Actor (Tip p) => ActorPath p -> MockActorContext p b -> (b, MockResult (Tip p))
+runMock' :: forall p b. Actor (Tip p) => CtxRef (MockActorContext p) p -> MockActorContext p b -> (b, MockResult (Tip p))
 runMock' ar ctx = runMock ar ctx startState
 
 runMockRoot :: forall a b. MockActorContext ('Root a) b -> a -> (b, MockResult a)
@@ -125,10 +124,10 @@ runMockRoot' :: forall a b. Actor a => MockActorContext ('Root a) b -> (b, MockR
 runMockRoot' ctx = runMockRoot ctx startState
 
 
-execMock :: forall p b. ActorPath p -> MockActorContext p b -> Tip p -> MockResult (Tip p)
+execMock :: forall p b. CtxRef (MockActorContext p) p -> MockActorContext p b -> Tip p -> MockResult (Tip p)
 execMock ar ctx a = snd $ runMock ar ctx a
 
-execMock' :: forall p b. Actor (Tip p) => ActorPath p -> MockActorContext p b -> MockResult (Tip p)
+execMock' :: forall p b. Actor (Tip p) => CtxRef (MockActorContext p) p -> MockActorContext p b -> MockResult (Tip p)
 execMock' ar ctx = snd $ runMock' ar ctx
 
 execMockRoot :: forall a b. MockActorContext ('Root a) b -> a -> MockResult a 
@@ -138,10 +137,10 @@ execMockRoot' :: forall a b. Actor a => MockActorContext ('Root a) b -> MockResu
 execMockRoot' ctx = snd $ runMockRoot' ctx 
 
 
-evalMock :: forall p b. ActorPath p -> MockActorContext p b -> Tip p -> b
+evalMock :: forall p b. CtxRef (MockActorContext p) p -> MockActorContext p b -> Tip p -> b
 evalMock ar ctx a = fst $ runMock ar ctx a
 
-evalMock' :: forall p b. Actor (Tip p) => ActorPath p -> MockActorContext p b -> b
+evalMock' :: forall p b. Actor (Tip p) => CtxRef (MockActorContext p) p -> MockActorContext p b -> b
 evalMock' ar ctx = fst $ runMock' ar ctx
 
 evalMockRoot :: forall a b. MockActorContext ('Root a) b -> a -> b 

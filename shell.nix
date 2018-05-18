@@ -12,7 +12,7 @@ let
         license = stdenv.lib.licenses.mit;                                                                                                       
       };
 
-  drv = pkgs.haskell.packages.ghc841.callPackage f {};
+  drv = pkgs.haskell.packages.ghc842.callPackage f {};
 in
   if pkgs.lib.inNixShell then drv.env else drv
 

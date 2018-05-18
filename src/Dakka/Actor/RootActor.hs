@@ -1,7 +1,6 @@
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -47,7 +46,7 @@ instance (IsRootActor l, Typeable l, l :⊆ l) => Actor (RootActor (l :: [*])) w
     behavior _              = pure ()
 
 class (Actor `ImplementedByAll` l, Typeable l) => IsRootActor (l :: [*]) where
-    initRootActor :: (Actor a, l :⊆ Creates a) => RootActor l -> ActorAction m a r
+    initRootActor :: (Actor a, l :⊆ Creates a) => RootActor l -> ActorAction m a
     createsActors :: RootActor l -> [SomeTypeRep]
 
 instance IsRootActor '[] where

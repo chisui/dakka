@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
@@ -25,13 +26,13 @@ import "dakka" Dakka.Actor
 import "dakka" Dakka.Path
 
 
-type SomePath = ActorPath ('Root PlainMessageActor)
+type SomePath = CtxRef (MockActorContext ('Root PlainMessageActor)) ('Root PlainMessageActor)
 
 somePath :: SomePath
 somePath = ActorPath $ root @PlainMessageActor
 
 
-instance Arbitrary (HPathT p ()) => Arbitrary (ActorPath p) where
+instance Arbitrary (HPathT p ()) => Arbitrary (CtxRef (MockActorContext p) p) where
     arbitrary = ActorPath <$> arbitrary
 
 tests :: TestTree
@@ -44,7 +45,7 @@ tests = testGroup "Dakka.MockActorContext"
                 show (Create (Proxy @(GenericActor Int))) @=? "Create <<GenericActor Int>>"
             , testCase "Send {to = (ActorPath /TrivialActor:()/), msg = (PlainMessage ())}" $
                 show Send{ to  = ActorPath (root @TrivialActor)
-                         , msg = PlainMessage ()
+                         , msg = PlainMessage @() @(MockActorContext ('Root TrivialActor)) ()
                          } @=? "Send {to = (ActorPath /TrivialActor:()/), msg = (PlainMessage ())}"
             ]
         , testGroup "Eq"

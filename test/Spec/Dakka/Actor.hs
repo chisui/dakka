@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-type-defaults #-}
 {-# LANGUAGE PackageImports #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -68,13 +68,13 @@ instance Actor CustomStateActor where
     behavior = noop
 
 
-data CustomMessage ref (p :: Path *) = CustomMessage
-    { usageOfRef :: ref ('Root CreatesActor ':/ TrivialActor)
-    , usageOfP   :: Proxy p
-    } deriving (Generic, Typeable)
-instance ActorRef ref => Eq (CustomMessage ref p) where
+data CustomMessage m = CustomMessage
+    { usageOfRef :: CtxRef m ('Root CreatesActor ':/ TrivialActor)
+    , usageOfP   :: Proxy (CtxPath m)
+    } deriving Generic
+instance ActorRef (CtxRef m) => Eq (CustomMessage m) where
     (CustomMessage r _) == (CustomMessage r' _) = r `eqRef` r'
-instance Show (CustomMessage ref p) where
+instance Show (CustomMessage m) where
     show _ = "CustomMessage"
 instance ActorMessage CustomMessage
 
@@ -110,8 +110,9 @@ instance Arbitrary m => Arbitrary (PlainMessage m (r :: k)) where
     arbitrary = PlainMessage <$> arbitrary
 
 data DummyContext (p :: Path *) a = DummyContext
-instance (MonadState (Tip p) (DummyContext p), ActorRefConstraints p) => ActorContext p (DummyContext p) where
-    type CtxRef  (DummyContext p) = Const Bool 
+instance (MonadState (Tip p) (DummyContext p), ActorRefConstraints p) => ActorContext (DummyContext p) where
+    data CtxRef (DummyContext p) q = DummyCtxRef Bool 
+        deriving (Eq, Show, Generic, ActorRef)
     type CtxPath (DummyContext p) = p
     self      = DummyContext
     create' _ = DummyContext
@@ -135,12 +136,13 @@ instance (Tip p ~a, ActorRefConstraints p, TrivialActor :∈ Creates a) => Arbit
   arbitrary = oneof
         [ pure Created
         , do b <- arbitrary
-             pure $ Obit (Const b :: Const Bool (p ':/ TrivialActor))
+             pure $ Obit (DummyCtxRef b :: CtxRef (DummyContext p) (p ':/ TrivialActor))
         ]
 
 
 type SomeSignal = Signal (DummyContext ('Root CreatesActor)) CreatesActor
 type SomeRootActor = RootActor '[TrivialActor, CustomMessageActor]
+type VoidDummyCtx = DummyContext ('Root (RootActor '[]))
 
 instance Arbitrary (RootActor l) where
     arbitrary = pure mempty
@@ -164,7 +166,7 @@ tests = testGroup "Dakka.Actor"
         ]
     , testGroup "PlainMessage"
         [ testProperty "read . show = id" $
-            \ (m :: PlainMessage (Maybe Bool) Void Void) -> read (show m) === m
+            \ (m :: PlainMessage (Maybe Bool) Void) -> read (show m) === m
         , testGroup "Show"
             [ testCase "PlainMessage 42" $ do
                 show (PlainMessage 42) @=? "PlainMessage 42"
@@ -176,9 +178,9 @@ tests = testGroup "Dakka.Actor"
             ]
         , testGroup "ActorMessage"
             [ testProperty "eqMsg = (==)" $
-                \ (a :: PlainMessage Bool (Const Bool) ('Root Void)) b -> (a `eqMsg` b) === (a == b)
+                \ (a :: PlainMessage Bool VoidDummyCtx) b -> (a `eqMsg` b) === (a == b)
             , testProperty "showsPrec = showsMsg" $
-                \ (a :: PlainMessage (Maybe Bool) (Const Bool) ('Root Void)) str b 
+                \ (a :: PlainMessage (Maybe Bool) VoidDummyCtx) str b 
                     -> let d = if b then 5 else 11
                         in showsPrec d a str === showsMsg d a str
             ]

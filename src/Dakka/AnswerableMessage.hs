@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -17,22 +17,30 @@ module Dakka.AnswerableMessage
     ) where
 
 import "base" Data.Typeable ( Typeable )
+import "base" GHC.Generics ( Generic )
+
+import "binary" Data.Binary ( Binary )
 
 import Dakka.Actor ( ActorContext(..), ActorMessage )
 
 
 data AnswerableMessage (r :: (* -> *) -> *) (m :: * -> *)
     = AnswerableMessage
-  deriving (Eq, Show, Typeable)
+  deriving (Generic)
 
 deriving instance Typeable (AnswerableMessage r m)
 
+instance Eq (AnswerableMessage r m) where
+    _ == _ = False -- LIES
+instance Show (AnswerableMessage r m) where
+    show _ = "AnswerableMessage"
 instance Typeable r => ActorMessage (AnswerableMessage r)
+instance Binary (AnswerableMessage r m)
 
 
-answerableMessage :: ref (CtxPath m) -> AnswerableMessage r m 
-answerableMessage _ = AnswerableMessage
+answerableMessage :: CtxRef m p -> AnswerableMessage r n 
+answerableMessage _ = AnswerableMessage 
 
-answer :: ActorContext p m => r m -> AnswerableMessage r m -> m ()
+answer :: ActorContext m => r m -> AnswerableMessage r m -> m ()
 answer = undefined 
 

@@ -12,6 +12,7 @@
 module Main where
 
 import "base" Data.Functor ( void )
+import "base" Data.Typeable ( Typeable )
 import "base" Control.Applicative ( Const(..) )
 
 import "transformers" Control.Monad.Trans.State.Lazy ( StateT, runStateT )
@@ -41,13 +42,16 @@ instance (a ~ Tip p) => MonadState a (DistributedActorContext p) where
 
 liftProcess = DistributedActorContext . lift
 
+instance Typeable p => A.ActorRef (A.CtxRef (DistributedActorContext p))
+
 instance ( A.ActorRefConstraints p
          , MonadState (Tip p) (DistributedActorContext p)
-         ) => A.ActorContext p (DistributedActorContext p) where
-    type CtxRef  (DistributedActorContext p) = Const ProcessId
+         ) => A.ActorContext (DistributedActorContext p) where
+    data CtxRef  (DistributedActorContext p) q = ActorId ProcessId
+        deriving (Eq, Show)
     type CtxPath (DistributedActorContext p) = p 
-    self = Const <$> liftProcess getSelfPid
-    (Const pid) ! m = liftProcess $ send pid m
+    self = ActorId <$> liftProcess getSelfPid
+    (ActorId pid) ! m = liftProcess $ send pid m
 
 main :: IO ()
 main = do
