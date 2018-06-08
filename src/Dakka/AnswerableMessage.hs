@@ -3,7 +3,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -17,16 +16,20 @@ module Dakka.AnswerableMessage
     ) where
 
 import "base" Data.Typeable ( Typeable )
-import "base" GHC.Generics ( Generic )
 
-import "binary" Data.Binary ( Binary )
+import "binary" Data.Binary ( Binary(..) )
 
-import Dakka.Actor ( ActorContext(..), ActorMessage )
+import Dakka.Actor ( ActorContext(..), ActorMessage, CtxMessage )
+import Dakka.Convert ( Convertible(..) )
 
 
 data AnswerableMessage (r :: (* -> *) -> *) (m :: * -> *)
-    = AnswerableMessage
-  deriving (Generic)
+  = forall n. 
+    ( ActorContext n
+    , CtxRef m ~ CtxRef n
+    , Binary (CtxMessage n)
+    , r n `Convertible` CtxMessage n
+    ) => AnswerableMessage (CtxRef n (CtxPath n))
 
 deriving instance Typeable (AnswerableMessage r m)
 
@@ -35,12 +38,19 @@ instance Eq (AnswerableMessage r m) where
 instance Show (AnswerableMessage r m) where
     show _ = "AnswerableMessage"
 instance Typeable r => ActorMessage (AnswerableMessage r)
-instance Binary (AnswerableMessage r m)
+instance Binary (AnswerableMessage r m) where
+    put = undefined
+    get = undefined
 
-
-answerableMessage :: CtxRef m p -> AnswerableMessage r n 
-answerableMessage _ = AnswerableMessage 
+answerableMessage
+  :: ( ActorContext m
+     , ActorContext n
+     , Binary (CtxMessage n)
+     , CtxRef m ~ CtxRef n
+     , r n `Convertible` CtxMessage n
+     ) => CtxRef m (CtxPath n) -> m (AnswerableMessage r n)
+answerableMessage = return . AnswerableMessage
 
 answer :: ActorContext m => r m -> AnswerableMessage r m -> m ()
-answer = undefined 
+answer r (AnswerableMessage ref) = ref ! convert r 
 

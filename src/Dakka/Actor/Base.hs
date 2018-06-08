@@ -28,6 +28,7 @@ module Dakka.Actor.Base
     , ActorRef(..)
     , ActorRefConstraints
     , ActorContext(..)
+    , CtxMessage
     , create
     , Actor(..)
     , ActorAction
@@ -156,6 +157,8 @@ create :: ( Actor b
           , ConsistentActorPath (p ':/ b)
           ) => m (CtxRef m (p ':/ b))
 create = create' Proxy
+
+type CtxMessage m = Message (Tip (CtxPath m)) m
 
 -- ------- --
 --  Actor  --
