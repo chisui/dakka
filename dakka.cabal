@@ -22,6 +22,7 @@ executable cloud-test
                      , dakka
                      , distributed-process
                      , network-transport-tcp
+                     , freer-simple
   main-is:             Main.hs
   default-language:    Haskell2010
   ghc-options: -fprint-potential-instances -Wall -O2
@@ -34,6 +35,7 @@ library
                      , Dakka.MockActorContext
                      , Dakka.RemoteTableState
                      , Dakka.Convert
+                     , Dakka.Freer
   other-modules:       Dakka.Constraints
                      , Dakka.Path.Base
                      , Dakka.Path.PathSegment
@@ -46,6 +48,7 @@ library
                      , transformers
                      , contravariant
                      , mtl
+                     , freer-simple
                      , binary
                      , distributed-process
                      , distributed-static
