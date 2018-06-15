@@ -13,8 +13,10 @@ let
 in
 
 stdenv.mkDerivation {
-  name = "dakka-thesis";
+  name    = "dakka-thesis";
+  version = "0.0.1";
 
+  # to make includes work
   src = ./..;
 
   buildInputs = [
@@ -22,15 +24,18 @@ stdenv.mkDerivation {
     pandoc-include-code
     texlive.combined.scheme-full
   ];
+
   buildPhase = ''
     pandoc thesis/main.md \
       --filter pandoc-include-code \
+      --number-sections \
       --from markdown \
       --template ${eisvogel}/eisvogel.tex \
       --listings \
       --toc \
       -o result.pdf
   '';
+
   installPhase = ''
     mkdir $out
     mv result.pdf $out/thesis.pdf
