@@ -34,7 +34,9 @@ stdenv.mkDerivation {
   ];
 
   buildPhase = ''
+    # patch eisvogel template to use book class
     sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
+
     pandoc thesis/main.md \
       --listings \
       --toc \
