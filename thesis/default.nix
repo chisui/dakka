@@ -38,6 +38,7 @@ stdenv.mkDerivation {
     sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
 
     pandoc thesis/main.md \
+      --from markdown \
       --listings \
       --toc \
       --filter pandoc-include-code \
@@ -46,7 +47,6 @@ stdenv.mkDerivation {
       --csl ${csl-repo}/journal-of-computer-information-systems.csl \
       --template ./eisvogel.latex \
       --number-sections \
-      --from markdown \
       --top-level-division=chapter \
       -o result.pdf
   '';
