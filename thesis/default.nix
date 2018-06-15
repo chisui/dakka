@@ -32,7 +32,7 @@ stdenv.mkDerivation {
   '';
   installPhase = ''
     mkdir $out
-    mv result.pdf $out
+    mv result.pdf $out/thesis.pdf
   '';
 }
 
