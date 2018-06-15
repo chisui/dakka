@@ -7,7 +7,8 @@ let
     rev    = "40b00f300237780f2f5486ca88a18d987ad6bcd2";
     sha256 = "0g8ljzz4qacvjp38c3d5hraxgm93bxxsb8qkjj61b18ia4jnysxp";
   };
-  
+ 
+  # tests seem to be broken currently for this package
   pandoc-include-code = pkgs.haskell.lib.dontCheck pkgs.haskellPackages.pandoc-include-code;
 in
 
