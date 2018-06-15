@@ -8,10 +8,9 @@ tags:
 - Haskell
 - Actor
 - Dependent types
-# eisvogel attributes
 titlepage: yes
 toc-own-page: yes
-...
+---
 
 # Introduction
 
