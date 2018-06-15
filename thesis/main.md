@@ -8,7 +8,7 @@ tags:
 - Haskell
 - Actor
 - Dependent types
-geometry: margin=3.5cm
+geometry: "left=3.5cm, right=2.5cm"
 titlepage: yes
 toc-own-page: yes
 ---
@@ -99,4 +99,6 @@ But here we encounter two issues:
 The first issue can be solved by adding the actor type to `ActorContext` as a type parameter.
 
 The second is a little trickier.
+
+# Bibliography
 
