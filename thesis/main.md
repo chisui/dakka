@@ -1,5 +1,5 @@
 ---
-title: "Dakka: A dependently typed Actor framework in Haskell" 
+title: "Dakka: A dependently typed Actor framework for Haskell" 
 author:
 - Philipp Dargel
 date: 2018-??-??
@@ -91,14 +91,87 @@ We need a way for actors to perform their actor operations. To recall actors may
 
 The most straight forward way to implement these actions would be to use a monad transformer for each action. Creating and sending could be modeled with `WriterT` and chaning the internal state through `StateT`. The innermost monad wont be a tranformer of course.
 
-But here we encounter two issues:
+But here we encounter several issues:
 
 1. to change the sate me must know which actors behavior we are currently describing.
 2. to send a message we must ensure that the target actor can handle the message.
+3. to create an actor we have to pass around some reference to the actor type of the actor to create. 
 
 The first issue can be solved by adding the actor type to `ActorContext` as a type parameter.
 
-The second is a little trickier.
+The second and third are a little trickier. To be able to send a message in a typesafe way we need to retain the actor type. But if we would make the actor type explicit in the `WriterT` type we would only be able to send messages to actors of that exact type. Luckily there is a way to get both. Using the language extension `ExistentialQuantification` we can capture the actor type with a constructor without exposing it. To retrieve the captured type you just have to pattern match on the constructor. We can also use this to close over the the actor type in the create case. With this we can create a wrapper for a send and create actions:
+
+```haskell
+data SystemMessage
+    = forall a. Actor a => Send (ActorRef a) (Message a)
+    | forall a. Actor a => Create (Proxy a)
+  deriving (Eq, Show)
+```
+
+`ActorRef` is some way to identify an actor inside a actor system. We will define it later
+
+Unfortunatly we can't derive `Generic` for data types that use existential quantification and thus can't get a `Binary` instance for free. But as we will later discover we do not need to serialize values of `SystemMessage` so this is fine for now.
+
+With all this we can define `ActorContext` as follows:
+
+```haskell
+newtype ActorContext a v 
+    = ActorContext (StateT a (Writer [SystemMessage]) v)
+  deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadState a)
+```
+
+Notice that we only need one `Writer` since we combined create and send actions into a single type. Since `ActorContext` is nothing more than the composition of several Monad transformers it is itself a monad. Using `GeneralizedNewtypeDeriving` we can derive several useful monad instances. the classes `MonadWriter` and `MonadState` are provided by the `mtl` package.
+
+Since we added the actor type to the signature of `ActorContext` we need to change definition of `behavior` to reflect this:
+
+```haskell
+  behavior :: Message a -> ActorContext a () 
+```
+
+By derving `MonadState` we get a variety of functions to change the actors state. The other actor actions can now be defined as functions:
+
+### send
+
+```haskell
+send :: Actor a => ActorRef a -> Message a -> ActorContext b () 
+send ref msg = tell [Send ref msg]
+```
+
+Notice that the resulting `ActorContext` doesn't have `a` as its actor type but rather some other type `b`. This is because these two types don't have to be the same one. `a` is the type of actor the message is sent to and `b` is the type of actor whos behavior we are currently describing. The `send` function does not have a `Actor b` constraint since this would needlessly restrict the use of the function itself. When defining an actor it is already ensured that whatever `b` is it will be an `Actor`.
+
+We can also provide an akka-style send operator as a convenient alias for `send`:
+
+```haskell
+(!) = send
+```
+
+### create
+
+```haskell
+create' :: Actor a => Proxy a -> ActorContext b ()
+create' a = tell [Create a]
+```
+
+As idicated by the `'` this version of create is not intendet to be the main one. For that we define:
+
+```haskell
+create :: forall a. Actor a => ActorContext b ()
+create = create' (Proxy @a)
+```
+
+In combination with `TypeApplications` this enables us to create actors by just writing `create @TheActor` instead of the cumbersome `create' (Proxy :: Proxy TheActor)`.
+
+### Flexibillity and Effects
+
+By defining `ActorContext` as a datatype we force any environment to use exactly this datatype. This is problematic since actors now can only perform their three actor actions. `ActorContext` isn't flexible enough to express anything else. We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance. This would defeat our goal to be able to reason about actors though since we could now perform any `IO` we wanted.
+
+Luckily Haskells typesystem is expressive enough to solve this problem. Due to this expressiveness there is a myriad of different solutions for this problem though. Not all of them are viable of course. We will take a look at two approaches that integrate well into existing programming paradigms used in haskell and other functional languages.
+
+#### mtl style monad classes
+
+In this approach we 
+
+#### the Eff monad
 
 # Bibliography
 
