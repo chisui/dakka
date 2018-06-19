@@ -1,3 +1,0 @@
-#! /bin/sh
-nix-shell --run "cabal configure --enable-tests && cabal build" && dist/build/dakka-test/dakka-test
-
