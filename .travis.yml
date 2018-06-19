@@ -1,7 +1,4 @@
 language: nix
-script:
-  - nix-build
-  - nix-build thesis
 cache:
   directories:
     - /nix/store
