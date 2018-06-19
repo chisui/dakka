@@ -1,2 +1,6 @@
 language: nix
 script: nix-build shell.nix
+cache:
+  directories:
+    - /nix/store
+sudo: true
