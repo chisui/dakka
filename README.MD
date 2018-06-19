@@ -5,3 +5,11 @@
 
 A dependently typed actor framework for haskell.
 
+## Build
+
+    nix-build
+
+## Build thesis
+
+    nix-build thesis
+
