@@ -1,6 +1,8 @@
 with import <nixpkgs> {};
 
 let
+  book = "false";
+
   eisvogel = pkgs.fetchFromGitHub {
     owner  = "Wandmalfarbe";
     repo   = "pandoc-latex-template";
@@ -35,7 +37,19 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     # patch eisvogel template to use book class
-    sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
+    if (${book})
+    then
+      sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
+    else
+      cp ${eisvogel}/eisvogel.tex eisvogel.latex
+    fi
+
+    if (${book}) 
+    then
+      TOP_LEVEL_DIVISOR="--top-level-division=chapter"
+    else
+      TOP_LEVEL_DIVISOR=""
+    fi
 
     pandoc thesis/main.md \
       --from markdown \
@@ -47,7 +61,7 @@ stdenv.mkDerivation {
       --csl ${csl-repo}/journal-of-computer-information-systems.csl \
       --template ./eisvogel.latex \
       --number-sections \
-      --top-level-division=chapter \
+      $TOP_LEVEL_DIVISOR \
       -o result.pdf
   '';
 
