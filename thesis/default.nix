@@ -1,7 +1,7 @@
 with import <nixpkgs> {};
 
 let
-  book = "false";
+  book = false;
 
   eisvogel = pkgs.fetchFromGitHub {
     owner  = "Wandmalfarbe";
@@ -14,7 +14,7 @@ let
     owner  = "citation-style-language";
     repo   = "styles";
     rev    = "6b05f55e28e4689680bfc046247579756680c78b";
-    sha256 =  "0rnmsv01iz1j3rxc0z731a6kpqxnvp1dfyrd69lwgr4rzfm8acwx";
+    sha256 = "0rnmsv01iz1j3rxc0z731a6kpqxnvp1dfyrd69lwgr4rzfm8acwx";
   };
  
   # tests seem to be broken currently for this package
@@ -36,15 +36,15 @@ stdenv.mkDerivation {
   ];
 
   buildPhase = ''
-    # patch eisvogel template to use book class
-    if (${book})
+    if (${builtins.toJSON book})
     then
+      # patch eisvogel template to use book class
       sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
     else
       cp ${eisvogel}/eisvogel.tex eisvogel.latex
     fi
 
-    if (${book}) 
+    if (${builtins.toJSON book}) 
     then
       TOP_LEVEL_DIVISOR="--top-level-division=chapter"
     else
@@ -61,7 +61,7 @@ stdenv.mkDerivation {
       --csl ${csl-repo}/journal-of-computer-information-systems.csl \
       --template ./eisvogel.latex \
       --number-sections \
-      $TOP_LEVEL_DIVISOR \
+      --top-level-division=${if book then "chapter" else "section"} \
       -o result.pdf
   '';
 
