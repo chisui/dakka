@@ -1,7 +1,7 @@
 with import <nixpkgs> {};
 
 let
-  book = false;
+  book = true;
 
   eisvogel = pkgs.fetchFromGitHub {
     owner  = "Wandmalfarbe";
@@ -17,7 +17,7 @@ let
     sha256 = "0rnmsv01iz1j3rxc0z731a6kpqxnvp1dfyrd69lwgr4rzfm8acwx";
   };
  
-  # tests seem to be broken currently for this package
+  # doesn't currently build until https://github.com/owickstrom/pandoc-include-code/pull/12 is merged 
   pandoc-include-code = pkgs.haskell.lib.dontCheck pkgs.haskellPackages.pandoc-include-code;
 in
 
@@ -36,20 +36,10 @@ stdenv.mkDerivation {
   ];
 
   buildPhase = ''
-    if (${builtins.toJSON book})
-    then
-      # patch eisvogel template to use book class
-      sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > eisvogel.latex
-    else
-      cp ${eisvogel}/eisvogel.tex eisvogel.latex
-    fi
-
-    if (${builtins.toJSON book}) 
-    then
-      TOP_LEVEL_DIVISOR="--top-level-division=chapter"
-    else
-      TOP_LEVEL_DIVISOR=""
-    fi
+    ${if book
+      then "sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > template.tex"
+      else ""
+    }
 
     pandoc thesis/main.md \
       --from markdown \
@@ -59,7 +49,7 @@ stdenv.mkDerivation {
       --filter pandoc-citeproc \
       --bibliography ./thesis/bibliography.bib \
       --csl ${csl-repo}/journal-of-computer-information-systems.csl \
-      --template ./eisvogel.latex \
+      --template ${if book then "./template.tex" else "${eisvogel}/eisvogel.tex" } \
       --number-sections \
       --top-level-division=${if book then "chapter" else "section"} \
       -o result.pdf
