@@ -1,4 +1,4 @@
-{ mkDerivation, pandoc, pandoc-include-code, pandoc-citeproc, texlive, eisvogel, csl, book ? false }:
+{ mkDerivation, pandoc, pandoc-include-code, pandoc-citeproc, texlive, eisvogel, csl, book }:
 
 mkDerivation {
   name    = "dakka-thesis";

@@ -2,8 +2,15 @@
 
 with import <nixpkgs> {};
 
-let
-  book = true;
+(import ./thesis.nix) {
+  mkDerivation = stdenv.mkDerivation;
+
+  texlive = texlive.combined.scheme-full;
+
+  pandoc = pandoc;
+  pandoc-citeproc = haskellPackages.pandoc-citeproc;
+  # doesn't currently build until https://github.com/owickstrom/pandoc-include-code/pull/12 is merged 
+  pandoc-include-code = pkgs.haskell.lib.dontCheck pkgs.haskellPackages.pandoc-include-code;
 
   eisvogel = pkgs.fetchFromGitHub {
     owner  = "Wandmalfarbe";
@@ -18,19 +25,7 @@ let
     rev    = "6b05f55e28e4689680bfc046247579756680c78b";
     sha256 = "0rnmsv01iz1j3rxc0z731a6kpqxnvp1dfyrd69lwgr4rzfm8acwx";
   };
- 
-  # doesn't currently build until https://github.com/owickstrom/pandoc-include-code/pull/12 is merged 
-  pandoc-include-code = pkgs.haskell.lib.dontCheck pkgs.haskellPackages.pandoc-include-code;
-in
 
-(import ./thesis.nix) {
-  mkDerivation = stdenv.mkDerivation;
-  pandoc = pandoc;
-  pandoc-include-code = pandoc-include-code;
-  pandoc-citeproc = haskellPackages.pandoc-citeproc;
-  texlive = texlive.combined.scheme-full;
-  eisvogel = eisvogel;
-  csl = csl;
   book = book;
 }
 
