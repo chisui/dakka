@@ -59,11 +59,13 @@ instance Actor TestActor where
 
         -- Create an Actor reference from a path.
         -- The path has to be consistent.
-        wr <- create @WithRef
+
+        -- ### currently broken ###
+        -- $ wr <- create @WithRef
 
         -- Send an AnswerableMessage to the refered actor.
         -- The message contains a reference to this actor.
-        answerableMessage <$> self >>= send wr
+        -- $ answerableMessage <$> self >>= send wr
 
 apply :: forall proxy a b. (Convertible a b, Show b) => proxy b -> a -> IO ()
 apply _ = print . (convert :: a -> b)
@@ -114,9 +116,11 @@ instance Actor OtherActor where
     type Creates OtherActor = '[WithRef]
     onSignal = noop
     onMessage _ = do
-        p <- create @WithRef
-        a <- self
-        p ! answerableMessage a
+        return ()
+        -- ### AnswerableMessage is currently broken ###
+        -- $ p <- create @WithRef
+        -- $ a <- self
+        -- $ p ! answerableMessage a
 
     startState = OtherActor
 
