@@ -17,6 +17,29 @@ toc-own-page: yes
 
 The goal of this thesis is to create an Actor framework, simlar to akka for Haskell. It should be possible to reason about a actor system without having to run it to ensure some safty assumtions. To achieve this I will leverage some of haskells dependent typing features. It should also be possible to easily test actor implementations without creating a full actor system. 
 
+# Thechnical considerations
+
+## Language choice
+
+I chose haskell as a language since it is the most widely used language that facillitates dependent typing. There are other languages like `agda` and `idris` but they don't provide what we need. 
+
+- `agda` is rarely used as an acutal runtime system but rather as a proof assistent, so creating a realworld, distributed system with it is not feasable.
+- `idris` would be a good fit for dependent typing, an even better one than Haskell even since depend types are supported natively instead through language extension. The language itself seems to be a little immature at the current time though, especially the library ecosystem is extremly sparse.
+
+Haskell may not have native depended types but they are supported. Beeing able to rely on a vast number of existing libraries is a huge point in Haskells favor. Especially the `cloud-haskell` platform is extremly useful. In addition to implementing a form of actor framework itself it eases the creation of distributed systems immensly. Most of the heavy lifting on the network and operations side can be done through `cloud-haskell`.
+
+Another concern is my knowledge of other languages. I already have extensive knowledge of Haskell and many of it's more advanced concepts through my bachelors project, TA work in PI3 and private experience. Although this is not the main concern it is another point in Haskells favor.
+
+## Build tool
+
+There are several build tools and build tool combinations for haskell. The main one is `cabal` wich is essentially required for any kind of Haskell development. There are wrappers for `cabal` that provide additional features and help organize dependencies. It is highly recommended to use one of those wrappers since using cabal without one can be very cumbersome. One of the main issues of cabal is that it installs all dependencies of projects globaly. When working with multiple Haskell projects this will inevitably lead to conflicts and will land you in the so called *cabal hell*. There were attempts to mitigate these issues in cabal directly but these are cumbersome (sandboxes) to use or aren't finished yet (cabal new-build).
+
+The most widely that is used most often is `stack`. It's main goal is to provide reproducable builds for Haskell projects. It provides a good way of managing depedencies and Haskell projects. It works by bundling a GHC with a set of package versions that should all work with one another.
+
+Another wrapper is `nix`. This build tool isn't Haskell specific though, but it lends intself to Haskell development. Nix calls itself a *Purely Functional Package Manager*. Like stack it's main goal is providing reproducable builds. It goes far further than stack in this regard though. It sandboxes the build envinronment as hard as possible. This goes so far as disabling networkconnections while building and stripping change dates from files to ensure that a build is performed in the same environment.
+
+If nix can hold what it promises it would be the best build tool period. So for this project I elected nix as the main build tool. I will try to use it for everything I can from building the library itself to typsetting this very text. This will also be my first big nix project. There is also a linux distribution that uses nix not only as it's default package manager but to build the entire system and it's configuration. I will be using this distribution for development as well.
+
 # Prior art
 
 ## Cloud Haskell
@@ -174,4 +197,3 @@ In this approach we
 #### the Eff monad
 
 # Bibliography
-
