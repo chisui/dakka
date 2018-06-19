@@ -1,3 +1,6 @@
-language: haskell 
-ghc:
-  - 8.4.1
+language: nix
+script: nix-build shell.nix
+cache:
+  directories:
+    - /nix/store
+sudo: true
