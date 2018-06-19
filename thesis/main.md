@@ -81,6 +81,14 @@ Next we have to define a way for actors to handle Messages.
 
 `ActorContext` will be a class that provides the actor with a way to perform its actions.
 
+Additionally we have to provide a start state the actor has when it is first created:
+
+```haskell
+  startState :: a
+  default startState :: Monoid a => a
+  startState = mempty
+```
+
 ## ActorContext
 
 We need a way for actors to perform their actor operations. To recall actors may
@@ -161,17 +169,101 @@ create = create' (Proxy @a)
 
 In combination with `TypeApplications` this enables us to create actors by just writing `create @TheActor` instead of the cumbersome `create' (Proxy :: Proxy TheActor)`.
 
+### ActorRef
+
 ### Flexibillity and Effects
 
 By defining `ActorContext` as a datatype we force any environment to use exactly this datatype. This is problematic since actors now can only perform their three actor actions. `ActorContext` isn't flexible enough to express anything else. We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance. This would defeat our goal to be able to reason about actors though since we could now perform any `IO` we wanted.
 
 Luckily Haskells typesystem is expressive enough to solve this problem. Due to this expressiveness there is a myriad of different solutions for this problem though. Not all of them are viable of course. We will take a look at two approaches that integrate well into existing programming paradigms used in haskell and other functional languages.
 
+Both approaches involve associating what additional action an actor can take with the `Actor` instance definition. This is done by creating another associated typefamily in `Actor`. The value of this typefamily will be a list of types that identify what additional actions can be perfomed. What this type will be depends on the chosen approach. The list in this case will be an actual haskell list but promoted to a kind. This is possible through the `DataKinds` extension. 
+
 #### mtl style monad classes
 
-In this approach we 
+In this approach we use mtl style monad classes to communicate additional capabillities of the actor. This is done by truning `ActorContext` into a class itself where `create` and `send` are class members and `MonadState a` is a superclass.
+
+The associated typefamily will look like this:
+
+```haskell
+  type Capabillities a :: [(* -> *) -> Constraint]
+  type Capabillities a = '[]
+```
+
+With this the signature of `behavior` will change to:
+
+```haskell
+  behavior :: (ActorContext ctx, ImplementsAll (ctx a) (Capabillities a)) => Message a -> ctx a ()
+```
+
+Where `ImplementsAll` is a typefamily of kind `Constraint` that checks that the concrete context class fullfills all constraints in the given list:
+
+```haskell
+type family ImplementsAll (a :: k) (c :: [k -> Constraint]) :: Constraint where
+    ImplementsAll a (c ': cs) = (c a, ImplementsAll a cs)
+    ImplementsAll a '[]       = ()
+```
+
+To be able to run the behavior of a specific actor the chosen `ActorContext` implementation has to also implement all monad classes listed in `Capabillities`.
+
+```haskell
+newtype SomeActor = SomeActor ()
+  deriving (Eq, Show, Generic, Binary, Monoid)
+instance Actor SomeActor where
+    type Capabillities SomeActor = '[MonadIO]
+    behavior () = do
+        liftIO $ putStrLn "we can do IO action now"
+```
+
+Since `MonadIO` is in the list of Capabillities we can use its `liftIO` function to perform arbitrary `IO` actions inside the `ActorContext`.
+
+`MonadIO` may be a bad example though since it exposes to much power to the user. What we would need here is a set of more fine grain monad classes that each only provide access to a limited set of IO operations. Examples would be Things like a network acces monad class, file system class, logging class, etc. These would be useful even outside of this actor framework.
 
 #### the Eff monad
+
+The `Eff` monad as described in the `freer`, `freer-effects` and `freer-simple` packages is a free monad that provides an alternative way to monad classes and monad transformers to combine different effects into a single monad.
+
+A free monad in category theory is the simplest way to turn a functor into a monad. In other words it's the most basic construct for that the monad laws hold given a functor. The definition of a free monad involves a hefty portion of category theory. We will only focus on the the aspect that a free monad provides a way to describe monadic operations without providing an interpretations immediately. Instead the there can be multiple ways to interpret these operations. 
+
+When using the `Eff` monad there is only one monadic operation:
+
+```haskell
+send :: Member eff effs => eff a -> Eff effs a
+```
+
+`effs` has the kind `[* -> *]` and `Member` checks that `eff` is an element of `effs`. Every `eff` describes a set of effects. We can describe the actor operations with a GADT that can be used as effects in `Eff`:
+
+```haskell
+data ActorEff a v where
+    Send   :: Actor b => ActorRef b -> Message b -> ActorEff a ()
+    Create :: Actor b => Proxy b -> ActorEff a ()
+    Become :: a -> ActorEff a () 
+```
+
+With this we can define the functions:
+
+```haskell
+send :: (Member (ActorEff a) effs, Actor b) => ActorRef b -> Message b -> Eff effs ()
+send ref msg = Freer.send (Send ref msg)
+
+create :: forall b a effs. (Member (ActorEff a), Actor b) => Eff effs ()
+create = Freer.send $ Create (Proxy @b)
+
+become :: Member (ActorEff a) effs => a -> Eff effs ()
+become = Freer.send . Become
+```
+
+We could also define these operations without a new datatype using the predefined effects for `State` and `Writer`:
+
+```haskell
+send :: (Member (Writer [SystemMessage]) effs, Actor b) => ActorRef b -> Message b -> Eff effs ()
+send ref msg = tell (Send ref msg) 
+
+create :: forall b a effs. (Member (Writer [SystemMessage]), Actor b) => Eff effs ()
+create = tell $ Create (Proxy @b)
+```
+
+`become` does not need a corresponding function in this case since `State` already defines everything we need.
 
 # Bibliography
 
