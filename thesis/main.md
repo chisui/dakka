@@ -194,6 +194,79 @@ In combination with `TypeApplications` this enables us to create actors by just 
 
 ### ActorRef
 
+We need a way to reference actors inside an actor system. The most straight forward way to do this is by creating a data type to represent these references. This type also has to hold the actor type of the actor it is refering to. But how should we encode the actor reference? The simplest way would be to give each actor some kind of identifier and just store the identifier:
+
+```haskell
+newtype ActorRef a = ActorRef ActorId
+```
+
+References of this kind can't be be created by the user since you shouldn't be able to assiciate any `ActorId` with any actor type, since there is no way of verifying at compile time that a given id is associated a given actor type. The best way to achieve this is to modify the signature of `create` to return a reference to the just created actor.
+
+```haskell
+create :: forall a. Actor a => ActorContext b (ActorRef a)
+```
+
+Additionally it would be useful for actors to have a way to get a reference to themselves. We can achieve this by adding:
+
+```haskell
+self :: ActorContext a (ActorRef a)
+```
+
+#### Composing references
+
+#### Implemenation specific references
+
+#### Answering messages
+
+We need a way to respond to messages. This can be done by including a reference to the actor to respond to in the message and capturing it's `Actor` implementation.
+
+```haskell
+data AnswerableMessage = forall a. Actor a => AnswerableMessage (ActorRef a)
+```
+
+With this implementation we can't controll what actors can be refered to by the references we send. For example we would like to constrain what messages the provided actor can handle. We can achieve this by further constraining the actor type that is captured by the constructor:
+
+```haskell
+data AnswerableMessage m
+  = forall a.
+    ( Actor a
+    , Message a ~ m
+    ) =>
+      AnswerableMessage (ActorRef a)
+```
+
+Now only actors that except exactly messages of type `m` can be refered to. This may be a little to restrictive though. Maybe we want to be able to allow some other class of actor. With `ConstraintKinds` we can also externalize these constraints.
+
+
+```haskell
+data AnswerableMessage c
+  = forall a.
+    ( Actor a
+    , c a
+    ) =>
+      AnswerableMessage (ActorRef a)
+```
+
+This way we can express any constraint on actors and messages we want. The exact message constraint from above can expressed like this:
+
+```haskell
+type C a = M ~ Message a
+AnswerableMessage C 
+```
+
+We now run into the problem again that type aliases can't be partially applied. So have to use the trick of creating a class that is only implemented once. 
+
+```haskell
+class (Actor a, c (Message a)) => MessageConstraint c a
+instance (Actor a, c (Message a)) => MessageConstraint c a
+```
+
+With this we can rephrase the Above `AnswerableMessage` like this:
+
+```haskell
+AnswerableMessage (MessageConstraint (M ~))
+```
+
 ### Flexibillity and Effects
 
 By defining `ActorContext` as a datatype we force any environment to use exactly this datatype. This is problematic since actors now can only perform their three actor actions. `ActorContext` isn't flexible enough to express anything else. We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance. This would defeat our goal to be able to reason about actors though since we could now perform any `IO` we wanted.
@@ -287,5 +360,15 @@ create = tell $ Create (Proxy @b)
 ```
 
 `become` does not need a corresponding function in this case since `State` already defines everything we need.
+
+# Testing
+
+# Results
+
+## Dependent types in Haskell
+
+## Cloud Haskell
+
+## Nix
 
 # Bibliography

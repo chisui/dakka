@@ -2,7 +2,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -23,34 +22,33 @@ import Dakka.Actor ( ActorContext(..), ActorMessage, CtxMessage )
 import Dakka.Convert ( Convertible(..) )
 
 
-data AnswerableMessage (r :: (* -> *) -> *) (m :: * -> *)
-  = forall n. 
-    ( ActorContext n
-    , CtxRef m ~ CtxRef n
-    , Binary (CtxMessage n)
-    , r n `Convertible` CtxMessage n
-    ) => AnswerableMessage (CtxRef n (CtxPath n))
+data AnswerableMessage m c 
+  = forall a m. 
+    ( Actor a
+    , ActorContext a m
+    ) => AnswerableMessage (CtxRef m a)
 
-deriving instance Typeable (AnswerableMessage r m)
-
-instance Eq (AnswerableMessage r m) where
+instance Eq (AnswerableMessage m c) where
     _ == _ = False -- LIES
-instance Show (AnswerableMessage r m) where
+instance Show (AnswerableMessage m c) where
     show _ = "AnswerableMessage"
 instance Typeable r => ActorMessage (AnswerableMessage r)
-instance Binary (AnswerableMessage r m) where
+instance Binary (AnswerableMessage m c) where
     put = undefined
     get = undefined
 
 answerableMessage
-  :: ( ActorContext m
-     , ActorContext n
-     , Binary (CtxMessage n)
-     , CtxRef m ~ CtxRef n
-     , r n `Convertible` CtxMessage n
-     ) => CtxRef m (CtxPath n) -> m (AnswerableMessage r n)
+  :: forall c a m.
+    ( ActorContext a m
+    ) => CtxRef m a -> AnswerableMessage m c 
 answerableMessage = return . AnswerableMessage
 
-answer :: ActorContext m => r m -> AnswerableMessage r m -> m ()
-answer r (AnswerableMessage ref) = ref ! convert r 
+answer 
+  :: ( Actor a
+     , c a
+     , ActorContext a m
+     , ActorContext b n
+     , CtxRef m ~ CtxRef n
+     ) => Message a -> AnswerableMessage m c -> n ()
+answer m (AnswerableMessage ref) = ref ! m
 

@@ -111,51 +111,34 @@ class Typeable ref => ActorRef (ref :: Path * -> *) where
 --
 --     * create new actors.
 -- 
-class ( ActorRefConstraints (CtxPath m) 
-      , MonadState (Tip (CtxPath m)) m
-      , Typeable m
-      , ActorRef (CtxRef m)
-      ) => ActorContext (m :: * -> *)
+class ActorRef (CtxRef m)
+        => ActorContext (m :: * -> * -> *)
     where
       {-# MINIMAL self, create', (send | (!)) #-}
-      type CtxPath m :: Path *
-      data CtxRef m (p :: Path *) :: *
+      data CtxRef m :: * -> *
 
       -- | reference to the currently running 'Actor'
-      self :: m (CtxRef m (CtxPath m))
+      self :: m a (CtxRef m a)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
-      create' :: ( Actor b
-                 , p ~ CtxPath m
-                 , b :∈ Creates (Tip p)
-                 , ActorRefConstraints (p ':/ b)
-                 ) => Proxy b -> m (CtxRef m (p ':/ b))
+      create' :: ( Actor a 
+                 , Actor b
+                 , b :∈ Creates a 
+                 ) => Proxy b -> m a (CtxRef m b) 
 
       -- | Send a message to another actor
-      send :: ( PRoot p ~ PRoot b
-              , p ~ CtxPath m
-              , Actor (Tip b)
-              , Binary (Message (Tip b) m)
-              , ActorRefConstraints b
-              ) => CtxRef m b -> Message (Tip b) m -> m ()
+      send :: Actor b => CtxRef m b -> Message b m -> m a ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
-      (!) :: ( PRoot p ~ PRoot b
-             , p ~ CtxPath m
-             , Actor (Tip b)
-             , Binary (Message (Tip b) m)
-             , ActorRefConstraints b
-             ) => CtxRef m b -> Message (Tip b) m -> m () 
+      (!) :: Actor b => CtxRef m b -> Message b m -> m ()
       (!) = send
 
 
 create :: ( Actor b
-          , ActorContext m
-          , p ~ CtxPath m
-          , b :∈ Creates (Tip p)
-          , ConsistentActorPath (p ':/ b)
-          ) => m (CtxRef m (p ':/ b))
+          , ActorContext a m
+          , b :∈ Creates a 
+          ) => m (CtxRef m b)
 create = create' Proxy
 
 type CtxMessage m = Message (Tip (CtxPath m)) m
