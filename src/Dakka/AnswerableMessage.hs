@@ -18,21 +18,21 @@ import "base" Data.Typeable ( Typeable )
 
 import "binary" Data.Binary ( Binary(..) )
 
-import Dakka.Actor ( ActorContext(..), ActorMessage, CtxMessage )
+import Dakka.Actor ( ActorContext(..), ActorMessage, Actor( Message ) )
 import Dakka.Convert ( Convertible(..) )
 
 
-data AnswerableMessage m c 
+data AnswerableMessage m c ctx 
   = forall a m. 
     ( Actor a
-    , ActorContext a m
+    , ActorContext a ctx
     ) => AnswerableMessage (CtxRef m a)
 
-instance Eq (AnswerableMessage m c) where
+instance Eq (AnswerableMessage m c ctx) where
     _ == _ = False -- LIES
-instance Show (AnswerableMessage m c) where
+instance Show (AnswerableMessage m c ctx) where
     show _ = "AnswerableMessage"
-instance Typeable r => ActorMessage (AnswerableMessage r)
+instance Typeable r => ActorMessage (AnswerableMessage r c)
 instance Binary (AnswerableMessage m c) where
     put = undefined
     get = undefined

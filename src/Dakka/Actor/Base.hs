@@ -3,13 +3,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE PackageImports #-}
@@ -22,13 +22,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.Actor.Base
-    ( HPathT(..)
-    , root
-    , ref
-    , ActorRef(..)
-    , ActorRefConstraints
+    ( ActorRef(..)
     , ActorContext(..)
-    , CtxMessage
     , create
     , Actor(..)
     , ActorAction
@@ -58,10 +53,6 @@ import Dakka.Constraints
     , RichData
     , (=~=)
     )
-import Dakka.Path
-    ( Path(..), Tip, PRoot, root
-    , ref, HPathT(..), AllSegmentsImplement
-    )
 
 import Dakka.HasStartState ( HasStartState(..) )
 import Dakka.Convert ( Convertible(..) )
@@ -71,31 +62,16 @@ import Dakka.Convert ( Convertible(..) )
 --  ActorRef  --
 -- ---------- --
 
-type ActorRefConstraints p
-  = ( ConsistentActorPath p
-    , Typeable p
-    , Actor (Tip p)
-    , Actor (PRoot p)
-    , p `AllSegmentsImplement` Actor
-    , p `AllSegmentsImplement` Typeable
-    )
-
-type family ConsistentActorPath (p :: Path *) :: Constraint where
-    ConsistentActorPath ('Root a)  = (Actor a)
-    ConsistentActorPath (as ':/ a) = (a :∈ Creates (Tip as), ConsistentActorPath as)
-
-class Typeable ref => ActorRef (ref :: Path * -> *) where
-    eqRef :: (ActorRefConstraints p, ActorRefConstraints q) => ref p -> ref q -> Bool
-    default eqRef :: ( Eq (ref p)
-                     , ActorRefConstraints p
-                     , ActorRefConstraints q
-                     , Typeable (ref p)
-                     , Typeable (ref q)
-                     ) => ref p -> ref q -> Bool
+class Typeable ref => ActorRef  (ref :: * -> *) where
+    eqRef :: (Typeable (ref a), Typeable (ref b)) => ref a -> ref b -> Bool
+    default eqRef :: ( Eq (ref a)
+                     , Typeable (ref a)
+                     , Typeable (ref b)
+                     ) => ref a -> ref b -> Bool
     eqRef = (=~=)
 
-    showsRef :: ActorRefConstraints p => Int -> ref p -> ShowS
-    default showsRef :: (Show (ref p), ActorRefConstraints p) => Int -> ref p -> ShowS
+    showsRef :: (Typeable a) => Int -> ref a -> ShowS
+    default showsRef :: (Typeable a, Show (ref a)) => Int -> ref a -> ShowS
     showsRef = showsPrec
 
 -- -------------- --
@@ -111,23 +87,25 @@ class Typeable ref => ActorRef (ref :: Path * -> *) where
 --
 --     * create new actors.
 -- 
-class ActorRef (CtxRef m)
-        => ActorContext (m :: * -> * -> *)
+class ( ActorRef (CtxRef m)
+      , Actor a
+      , MonadState a m
+      ) => ActorContext a (m :: * -> *) | m -> a
     where
       {-# MINIMAL self, create', (send | (!)) #-}
       data CtxRef m :: * -> *
 
       -- | reference to the currently running 'Actor'
-      self :: m a (CtxRef m a)
+      self :: m (CtxRef m a)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
       create' :: ( Actor a 
                  , Actor b
                  , b :∈ Creates a 
-                 ) => Proxy b -> m a (CtxRef m b) 
+                 ) => Proxy b -> m (CtxRef m b) 
 
       -- | Send a message to another actor
-      send :: Actor b => CtxRef m b -> Message b m -> m a ()
+      send :: Actor b => CtxRef m b -> Message b m -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
@@ -135,25 +113,25 @@ class ActorRef (CtxRef m)
       (!) = send
 
 
-create :: ( Actor b
-          , ActorContext a m
-          , b :∈ Creates a 
-          ) => m (CtxRef m b)
+create :: forall b a m.
+  ( Actor b
+  , Actor a
+  , ActorContext a m
+  , b :∈ Creates a 
+  ) => m (CtxRef m b)
 create = create' Proxy
-
-type CtxMessage m = Message (Tip (CtxPath m)) m
 
 -- ------- --
 --  Actor  --
 -- ------- --
 
 class Typeable msg => ActorMessage (msg :: (* -> *) -> *) where
-    eqMsg :: ActorContext m => msg m -> msg m -> Bool
-    default eqMsg :: (ActorContext m, Eq (msg m)) => msg m -> msg m -> Bool
+    eqMsg :: ActorContext a m => msg m -> msg m -> Bool
+    default eqMsg :: (ActorContext a m, Eq (msg m)) => msg m -> msg m -> Bool
     eqMsg = (==)
     
-    showsMsg :: ActorContext m => Int -> msg m -> ShowS
-    default showsMsg :: (ActorContext m, Show (msg m)) => Int -> msg m -> ShowS
+    showsMsg :: ActorContext a m => Int -> msg m -> ShowS
+    default showsMsg :: (ActorContext a m, Show (msg m)) => Int -> msg m -> ShowS
     showsMsg = showsPrec
 
 
@@ -161,8 +139,7 @@ class Typeable msg => ActorMessage (msg :: (* -> *) -> *) where
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
 type ActorAction (m :: * -> *) (a :: *)
   = ( Actor a
-    , Tip (CtxPath m) ~ a
-    , ActorContext m
+    , ActorContext a m
     , m `ImplementsAll` Capabillities a
     ) => m ()
 
@@ -170,28 +147,25 @@ type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a m) -> Act
 
 data Signal (m :: * -> *) (a :: *) where
     Created :: Actor a => Signal m a
-    Obit    :: ( Actor a
-               , Typeable (p ':/ c)
-               , Tip p ~ a
-               , ActorRef (CtxRef m)
-               , ActorRefConstraints (p ':/ c)
-               ) => CtxRef m (p ':/ c) -> Signal m a
+    Obit    :: Actor a => CtxRef m a -> a -> Signal m a
 
 deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
 
-instance Eq (Signal m a) where
-    Created  == Created  = True
-    (Obit a) == (Obit b) = a `eqRef` b
-    _        == _        = False
+instance ActorContext a m => Eq (Signal m a) where
+    Created       == Created       = True
+    (Obit refa a) == (Obit refb b) = refa `eqRef` refb && a =~= b
+    _             == _             = False
 
-instance Show (Signal m a) where
+instance ActorContext a m => Show (Signal m a) where
     showsPrec d s = showParen (d > 10) $
         case s of
-            Created  -> showString "Created <<"
-                      . showsPrec 11 (typeRep s)
-                      . showString ">>"
-            (Obit r) -> showString "Obit "
-                      . showsRef 11 r
+            Created    -> showString "Created <<"
+                        . showsPrec 11 (typeRep s)
+                        . showString ">>"
+            (Obit r a) -> showString "Obit "
+                        . showsRef 11 r
+                        . showString " "
+                        . shows a
 
 newtype PlainMessage m p = PlainMessage
     { getPlainMessage :: m }
