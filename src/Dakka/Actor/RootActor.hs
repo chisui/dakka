@@ -18,7 +18,7 @@ import "base" Data.Proxy ( Proxy(..) )
 import "base" Data.Void ( Void ) 
 
 import Dakka.Actor.Base ( Actor( Creates, Message, behavior )
-                        , Signal(..), ActorAction, PlainMessage
+                        , Signal(..), ActorAction
                         , create, noop
                         )
 import Dakka.Constraints ( (:⊆), ImplementedByAll )
@@ -41,7 +41,7 @@ instance IsRootActor l => Show (RootActor l) where
 
 instance (IsRootActor l, Typeable l, l :⊆ l) => Actor (RootActor (l :: [*])) where
     type Creates (RootActor l) = l
-    type Message (RootActor l) = PlainMessage Void
+    type Message (RootActor l) = Void
     behavior (Left Created) = initRootActor (RootActor @l)
     behavior _              = pure ()
 

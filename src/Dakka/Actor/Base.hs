@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
@@ -27,8 +27,6 @@ module Dakka.Actor.Base
     , create
     , Actor(..)
     , ActorAction
-    , PlainMessage(..)
-    , ActorMessage(..)
     , Behavior
     , behaviorOf
     , LeafActor
@@ -38,14 +36,12 @@ module Dakka.Actor.Base
     ) where
 
 import "base" Data.Kind ( Constraint )
+import "base" Numeric.Natural ( Natural )
 import "base" Data.Typeable ( Typeable, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" GHC.Generics ( Generic )
-import "base" Text.ParserCombinators.ReadP ( readP_to_S, readS_to_P, string )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
-
-import "binary" Data.Binary ( Binary )
 
 import Dakka.Constraints
     ( (:∈)
@@ -55,24 +51,24 @@ import Dakka.Constraints
     )
 
 import Dakka.HasStartState ( HasStartState(..) )
-import Dakka.Convert ( Convertible(..) )
 
 
 -- ---------- --
 --  ActorRef  --
 -- ---------- --
 
-class Typeable ref => ActorRef  (ref :: * -> *) where
-    eqRef :: (Typeable (ref a), Typeable (ref b)) => ref a -> ref b -> Bool
-    default eqRef :: ( Eq (ref a)
-                     , Typeable (ref a)
-                     , Typeable (ref b)
-                     ) => ref a -> ref b -> Bool
-    eqRef = (=~=)
+newtype ActorRef a = ActorRef { actorId :: Natural }
+  deriving (Eq, Generic, Functor)
 
-    showsRef :: (Typeable a) => Int -> ref a -> ShowS
-    default showsRef :: (Typeable a, Show (ref a)) => Int -> ref a -> ShowS
-    showsRef = showsPrec
+eqRef :: (Typeable a, Typeable b) => ActorRef a -> ActorRef b -> Bool
+eqRef refA@(ActorRef idA) refB@(ActorRef idB) = idA == idB && typeRep refA == typeRep refB
+
+instance Typeable a => Show (ActorRef a) where
+    showsPrec d ref@(ActorRef aId) = showParen (d > 10)
+                                   $ showString "ActorPath <<"
+                                   . shows (typeRep ref)
+                                   . showString ">>@"
+                                   . shows aId
 
 -- -------------- --
 --  ActorContext  --
@@ -87,29 +83,26 @@ class Typeable ref => ActorRef  (ref :: * -> *) where
 --
 --     * create new actors.
 -- 
-class ( ActorRef (CtxRef m)
-      , Actor a
+class ( Actor a
       , MonadState a m
       ) => ActorContext a (m :: * -> *) | m -> a
     where
       {-# MINIMAL self, create', (send | (!)) #-}
-      data CtxRef m :: * -> *
-
       -- | reference to the currently running 'Actor'
-      self :: m (CtxRef m a)
+      self :: m (ActorRef a)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
       create' :: ( Actor a 
                  , Actor b
                  , b :∈ Creates a 
-                 ) => Proxy b -> m (CtxRef m b) 
+                 ) => Proxy b -> m (ActorRef b) 
 
       -- | Send a message to another actor
-      send :: Actor b => CtxRef m b -> Message b m -> m ()
+      send :: Actor b => ActorRef b -> Message b -> m ()
       send = (!)
 
       -- | Alias for 'send' to enable akka style inline send.
-      (!) :: Actor b => CtxRef m b -> Message b m -> m ()
+      (!) :: Actor b => ActorRef b -> Message b -> m ()
       (!) = send
 
 
@@ -118,22 +111,12 @@ create :: forall b a m.
   , Actor a
   , ActorContext a m
   , b :∈ Creates a 
-  ) => m (CtxRef m b)
+  ) => m (ActorRef b)
 create = create' Proxy
 
 -- ------- --
 --  Actor  --
 -- ------- --
-
-class Typeable msg => ActorMessage (msg :: (* -> *) -> *) where
-    eqMsg :: ActorContext a m => msg m -> msg m -> Bool
-    default eqMsg :: (ActorContext a m, Eq (msg m)) => msg m -> msg m -> Bool
-    eqMsg = (==)
-    
-    showsMsg :: ActorContext a m => Int -> msg m -> ShowS
-    default showsMsg :: (ActorContext a m, Show (msg m)) => Int -> msg m -> ShowS
-    showsMsg = showsPrec
-
 
 -- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
 -- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
@@ -143,11 +126,11 @@ type ActorAction (m :: * -> *) (a :: *)
     , m `ImplementsAll` Capabillities a
     ) => m ()
 
-type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a m) -> ActorAction m a
+type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a) -> ActorAction m a
 
 data Signal (m :: * -> *) (a :: *) where
     Created :: Actor a => Signal m a
-    Obit    :: Actor a => CtxRef m a -> a -> Signal m a
+    Obit    :: Actor a => ActorRef a -> a -> Signal m a
 
 deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
 
@@ -163,32 +146,12 @@ instance ActorContext a m => Show (Signal m a) where
                         . showsPrec 11 (typeRep s)
                         . showString ">>"
             (Obit r a) -> showString "Obit "
-                        . showsRef 11 r
+                        . shows r
                         . showString " "
                         . shows a
 
-newtype PlainMessage m p = PlainMessage
-    { getPlainMessage :: m }
-  deriving (Eq, Ord, Typeable, Generic)
-
-instance Show m => Show (PlainMessage m p) where
-    showsPrec d (PlainMessage m) = showParen (d > 10)
-                                 $ showString "PlainMessage "
-                                 . showsPrec 11 m
-
-instance Read m => Read (PlainMessage m p) where
-    readsPrec d = readParen (d > 10)
-                $ readP_to_S
-                $ string "PlainMessage " *> fmap PlainMessage (readS_to_P reads)
-
-instance (Typeable m, Show m, Eq m) => ActorMessage (PlainMessage m)
-instance Binary m => Binary (PlainMessage m p)
-
-instance Convertible a b => Convertible (PlainMessage a p) (PlainMessage b q) where
-    convert (PlainMessage m) = PlainMessage $ convert m
-
 class ( RichData a
-      , ActorMessage (Message a)
+      , RichData (Message a)
       , Actor `ImplementedByAll` Creates a
       ) => Actor (a :: *)
     where
@@ -199,15 +162,15 @@ class ( RichData a
       type Creates a = '[]
   
       -- | Type of Message this Actor may recieve
-      type Message a :: (* -> *) -> *
-      type Message a = PlainMessage ()
+      type Message a :: *
+      type Message a = ()
 
       -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
       type Capabillities a :: [(* -> *) -> Constraint]
       type Capabillities a = '[]
 
       -- | What this Actor does when recieving a message
-      onMessage :: Message a m -> ActorAction m a
+      onMessage :: Message a -> ActorAction m a
       onMessage = behavior . Right
 
       -- | What this Actor does when recieving a Signal
@@ -215,7 +178,7 @@ class ( RichData a
       onSignal = behavior . Left
 
       -- | The behavior of this Actor
-      behavior :: Either (Signal m a) (Message a m) -> ActorAction m a
+      behavior :: Either (Signal m a) (Message a) -> ActorAction m a
       behavior = either onSignal onMessage
 
       startState :: a

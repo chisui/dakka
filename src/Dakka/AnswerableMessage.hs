@@ -1,7 +1,8 @@
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -10,45 +11,46 @@
 {-# LANGUAGE RankNTypes #-}
 module Dakka.AnswerableMessage
     ( AnswerableMessage
+    , ConstraintAnswerableMessage
     , answerableMessage
     , answer
     ) where
 
-import "base" Data.Typeable ( Typeable )
+import "base" Data.Kind ( Constraint )
 
 import "binary" Data.Binary ( Binary(..) )
 
-import Dakka.Actor ( ActorContext(..), ActorMessage, Actor( Message ) )
-import Dakka.Convert ( Convertible(..) )
+import Dakka.Actor ( ActorContext(..), Actor( Message ), ActorRef )
+import Dakka.Constraints ( (=~=) )
+import Dakka.Convert ( Convertible(..) ) 
 
-
-data AnswerableMessage m c ctx 
-  = forall a m. 
+data ConstraintAnswerableMessage (m :: *) (c :: * -> Constraint)
+  = forall a. 
     ( Actor a
-    , ActorContext a ctx
-    ) => AnswerableMessage (CtxRef m a)
+    , c a
+    , Convertible m (Message a)
+    ) => AnswerableMessage (ActorRef a)
 
-instance Eq (AnswerableMessage m c ctx) where
-    _ == _ = False -- LIES
-instance Show (AnswerableMessage m c ctx) where
-    show _ = "AnswerableMessage"
-instance Typeable r => ActorMessage (AnswerableMessage r c)
-instance Binary (AnswerableMessage m c) where
+instance Eq (ConstraintAnswerableMessage m c) where
+    (AnswerableMessage refA) == (AnswerableMessage refB) = refA =~= refB
+instance Show (ConstraintAnswerableMessage m c) where
+    showsPrec d (AnswerableMessage ref) = showParen (d > 10) 
+                                        $ showString "AnswerableMessage"
+                                        . shows ref
+instance Binary (ConstraintAnswerableMessage m c) where
     put = undefined
     get = undefined
 
-answerableMessage
-  :: forall c a m.
-    ( ActorContext a m
-    ) => CtxRef m a -> AnswerableMessage m c 
-answerableMessage = return . AnswerableMessage
+type AnswerableMessage m = ConstraintAnswerableMessage m Actor 
 
-answer 
-  :: ( Actor a
-     , c a
-     , ActorContext a m
-     , ActorContext b n
-     , CtxRef m ~ CtxRef n
-     ) => Message a -> AnswerableMessage m c -> n ()
-answer m (AnswerableMessage ref) = ref ! m
+answerableMessage
+  :: forall (a :: *) (m :: *) (c :: * -> Constraint). 
+    ( Actor a
+    , c a
+    , Convertible m (Message a)
+    ) => ActorRef a -> ConstraintAnswerableMessage m c
+answerableMessage = AnswerableMessage
+
+answer :: ActorContext b ctx => m -> ConstraintAnswerableMessage m c -> ctx () 
+answer m (AnswerableMessage ref) = ref ! convert m
 

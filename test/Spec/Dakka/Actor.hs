@@ -54,9 +54,9 @@ data PlainMessageActor = PlainMessageActor
     deriving (Eq, Ord, Show, Read, Generic, Typeable)
 instance HasStartState PlainMessageActor 
 instance Actor PlainMessageActor where
-    type Message PlainMessageActor = PlainMessage String
-    onMessage (PlainMessage "hello") = pure () 
-    onMessage _                      = pure () 
+    type Message PlainMessageActor = String
+    onMessage "hello" = pure () 
+    onMessage _       = pure () 
     onSignal = noop
 
 
@@ -66,25 +66,6 @@ instance HasStartState CustomStateActor where
     start = CustomStateActor 0
 instance Actor CustomStateActor where
     behavior = noop
-
-
-data CustomMessage m = CustomMessage
-    { usageOfRef :: CtxRef m ('Root CreatesActor ':/ TrivialActor)
-    , usageOfP   :: Proxy (CtxPath m)
-    } deriving Generic
-instance ActorRef (CtxRef m) => Eq (CustomMessage m) where
-    (CustomMessage r _) == (CustomMessage r' _) = r `eqRef` r'
-instance Show (CustomMessage m) where
-    show _ = "CustomMessage"
-instance ActorMessage CustomMessage
-
-data CustomMessageActor = CustomMessageActor 
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
-instance HasStartState CustomMessageActor 
-instance Actor CustomMessageActor where
-    type Message CustomMessageActor = CustomMessage
-    onMessage (CustomMessage _ _) = pure () 
-    onSignal = noop
 
 
 class CustomCapabillity (m :: * -> *) where
@@ -104,20 +85,12 @@ instance HasStartState (GenericActor a)
 instance Typeable a => Actor (GenericActor a) where
     behavior = noop
 
-instance (Typeable a, Eq a, Show a) => ActorRef (Const a) 
-
-instance Arbitrary m => Arbitrary (PlainMessage m (r :: k)) where
-    arbitrary = PlainMessage <$> arbitrary
-
-data DummyContext (p :: Path *) a = DummyContext
-instance (MonadState (Tip p) (DummyContext p), ActorRefConstraints p) => ActorContext (DummyContext p) where
-    data CtxRef (DummyContext p) q = DummyCtxRef Bool 
-        deriving (Eq, Show, Generic, ActorRef)
-    type CtxPath (DummyContext p) = p
+data DummyContext a v = DummyContext
+instance Actor a => ActorContext a (DummyContext a) where
     self      = DummyContext
     create' _ = DummyContext
     send _ _  = DummyContext
-instance (Tip ('Root a) ~ a) => MonadState a (DummyContext ('Root a)) where
+instance MonadState a (DummyContext a) where
     state _ = DummyContext
 instance (Tip (as ':/ a) ~ a) => MonadState a (DummyContext (as ':/ a)) where
     state _ = DummyContext
@@ -132,16 +105,16 @@ instance Monad (DummyContext p) where
 instance Arbitrary (DummyContext p a) where
     arbitrary = pure DummyContext
 
-instance (Tip p ~a, ActorRefConstraints p, TrivialActor :∈ Creates a) => Arbitrary (Signal (DummyContext p) a) where
+instance Arbitrary (Signal (DummyContext a) a) where
   arbitrary = oneof
         [ pure Created
         , do b <- arbitrary
-             pure $ Obit (DummyCtxRef b :: CtxRef (DummyContext p) (p ':/ TrivialActor))
+             pure $ Obit (ActorRef b :: ActorRef a) 
         ]
 
 
 type SomeSignal = Signal (DummyContext ('Root CreatesActor)) CreatesActor
-type SomeRootActor = RootActor '[TrivialActor, CustomMessageActor]
+type SomeRootActor = RootActor '[TrivialActor, PlainMessageActor]
 type VoidDummyCtx = DummyContext ('Root (RootActor '[]))
 
 instance Arbitrary (RootActor l) where
@@ -163,24 +136,11 @@ tests = testGroup "Dakka.Actor"
             \ (s :: SomeSignal) -> case s of
                 Obit r  -> show s === "Obit (" ++ show r ++ ")"
                 Created -> show s === "Created <<CreatesActor>>"
-        ]
-    , testGroup "PlainMessage"
-        [ testProperty "read . show = id" $
-            \ (m :: PlainMessage (Maybe Bool) Void) -> read (show m) === m
-        , testGroup "Show"
-            [ testCase "PlainMessage 42" $ do
-                show (PlainMessage 42) @=? "PlainMessage 42"
-                show PlainMessage{getPlainMessage = 42} @=? "PlainMessage 42"
-            , testCase "PlainMessage (Just 42)" $
-                show (PlainMessage (Just 42)) @=? "PlainMessage (Just 42)"
-            , testCase "Just (PlainMessage 42)" $
-                show (Just (PlainMessage 42)) @=? "Just (PlainMessage 42)"
-            ]
         , testGroup "ActorMessage"
             [ testProperty "eqMsg = (==)" $
-                \ (a :: PlainMessage Bool VoidDummyCtx) b -> (a `eqMsg` b) === (a == b)
+                \ (a :: Bool VoidDummyCtx) b -> (a `eqMsg` b) === (a == b)
             , testProperty "showsPrec = showsMsg" $
-                \ (a :: PlainMessage (Maybe Bool) VoidDummyCtx) str b 
+                \ (a :: (Maybe Bool) VoidDummyCtx) str b 
                     -> let d = if b then 5 else 11
                         in showsPrec d a str === showsMsg d a str
             ]
@@ -194,10 +154,10 @@ tests = testGroup "Dakka.Actor"
                 show (mempty @(RootActor '[])) @=? "RootActor <<[]>>"
             ] 
         , testGroup "behavior"
-            [ testCase "run Created $ RootActor '[TrivialActor, CustomMessageActor]" $ do
+            [ testCase "run Created $ RootActor '[TrivialActor, PlainMessageActor]" $ do
                 let [msg0, msg1] = snd $ execMockRoot' $ onSignal @SomeRootActor Created
                 msg0 @=? Create (Proxy @TrivialActor)
-                msg1 @=? Create (Proxy @CustomMessageActor)
+                msg1 @=? Create (Proxy @PlainMessageActor)
             , testCase "run Created $ RootActor '[]" $
                 snd (execMockRoot' (onSignal @(RootActor '[]) Created)) @=? []
             ]

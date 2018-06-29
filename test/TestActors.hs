@@ -14,7 +14,7 @@ import "base" Data.Typeable ( Typeable, Proxy(..) )
 import "base" GHC.Generics ( Generic )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor ( PlainMessage(..), Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
+import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
 import "dakka" Dakka.AnswerableMessage ( AnswerableMessage, answerableMessage, answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
@@ -38,12 +38,12 @@ instance HasStartState TestActor where
     start = mempty
 
 instance Actor TestActor where
-    type Message TestActor = PlainMessage String
+    type Message TestActor = String
     type Creates TestActor = '[OtherActor, WithRef]
     type Capabillities TestActor = '[MonadIO]
 
     onSignal = noop
-    onMessage (PlainMessage m) = do
+    onMessage m = do
 
         -- change interal actor state through MonadState
         modify (TestActor . succ . i)
@@ -55,17 +55,16 @@ instance Actor TestActor where
         -- create a new Actor and send a message to it.
         -- You can only create Actors that are in 'Creates'.
         -- You can also only send messages that the actor can handle to them.
-        create @OtherActor >>= (! (PlainMessage $ Msg m))
+        create @OtherActor >>= (! Msg m)
 
         -- Create an Actor reference from a path.
         -- The path has to be consistent.
 
-        -- ### currently broken ###
-        -- $ wr <- create @WithRef
+        wr <- create @WithRef
 
         -- Send an AnswerableMessage to the refered actor.
         -- The message contains a reference to this actor.
-        -- $ answerableMessage <$> self >>= send wr
+        answerableMessage <$> self >>= send wr
 
 apply :: forall proxy a b. (Convertible a b, Show b) => proxy b -> a -> IO ()
 apply _ = print . (convert :: a -> b)
@@ -88,12 +87,12 @@ data TurnstileInput
   deriving (Show, Eq, Typeable)
 
 instance Actor Turnstile where
-    type Message Turnstile = PlainMessage TurnstileInput
+    type Message Turnstile = TurnstileInput
     startState = Locked
 
     onSignal = noop
     -- Unlock on Coin. Lock un Push
-    onMessage (PlainMessage m) = get >>= \case
+    onMessage m = get >>= \case
         Locked -> case m of
                     Coin -> put Unlocked
                     Push -> return ()
@@ -112,15 +111,13 @@ instance Convertible String Msg where
 data OtherActor = OtherActor deriving (Show, Eq, Generic)
 
 instance Actor OtherActor where
-    type Message OtherActor = PlainMessage Msg
+    type Message OtherActor = Msg
     type Creates OtherActor = '[WithRef]
     onSignal = noop
     onMessage _ = do
-        return ()
-        -- ### AnswerableMessage is currently broken ###
-        -- $ p <- create @WithRef
-        -- $ a <- self
-        -- $ p ! answerableMessage a
+        p <- create @WithRef
+        a <- self
+        p ! answerableMessage a
 
     startState = OtherActor
 
@@ -128,8 +125,8 @@ instance Actor OtherActor where
 -- | Actor that handles references to other Actors
 data WithRef = WithRef deriving (Show, Eq, Typeable)
 instance Actor WithRef where
-    type Message WithRef = AnswerableMessage (PlainMessage String)
+    type Message WithRef = AnswerableMessage String
     onSignal = noop
-    onMessage a = PlainMessage "hello" `answer` a
+    onMessage a = "hello" `answer` a
     startState = WithRef
 
