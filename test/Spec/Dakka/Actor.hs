@@ -17,16 +17,17 @@ module Spec.Dakka.Actor where
 
 import "base" GHC.Generics ( Generic )
 import "base" Data.Typeable ( Typeable )
+import "base" Numeric.Natural ( Natural )
 import "base" Control.Monad ( void, ap )
 import "base" Data.Proxy ( Proxy(..) )
-import "base" Control.Applicative ( Const(..) )
-import "base" Data.Void ( Void )
+
+import "binary" Data.Binary ( Binary )
 
 import "mtl" Control.Monad.State.Class ( MonadState(..) )
 
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Arbitrary(..), oneof )
+import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Arbitrary(..), oneof, Positive(..) )
 
 import "dakka" Dakka.Actor
 import "dakka" Dakka.MockActorContext
@@ -36,22 +37,23 @@ import TestUtils ( testMonoid )
 
 
 data TrivialActor = TrivialActor
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState TrivialActor
 instance Actor TrivialActor where
     behavior = noop
 
 
 data CreatesActor = CreatesActor
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState CreatesActor
 instance Actor CreatesActor where
     type Creates CreatesActor = '[TrivialActor]
     behavior _ = void $ create @TrivialActor
-
+instance Arbitrary CreatesActor where
+    arbitrary = return CreatesActor
 
 data PlainMessageActor = PlainMessageActor 
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState PlainMessageActor 
 instance Actor PlainMessageActor where
     type Message PlainMessageActor = String
@@ -61,7 +63,7 @@ instance Actor PlainMessageActor where
 
 
 newtype CustomStateActor = CustomStateActor Int
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState CustomStateActor where
     start = CustomStateActor 0
 instance Actor CustomStateActor where
@@ -72,7 +74,7 @@ class CustomCapabillity (m :: * -> *) where
     custom :: m ()
 
 data CustomCapabillitiesActor = CustomCapabillitiesActor 
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState CustomCapabillitiesActor 
 instance Actor CustomCapabillitiesActor where
     type Capabillities CustomCapabillitiesActor = '[CustomCapabillity]
@@ -80,7 +82,7 @@ instance Actor CustomCapabillitiesActor where
 
 
 data GenericActor (a :: *) = GenericActor 
-    deriving (Eq, Ord, Show, Read, Generic, Typeable)
+    deriving (Eq, Ord, Show, Read, Generic, Binary)
 instance HasStartState (GenericActor a)
 instance Typeable a => Actor (GenericActor a) where
     behavior = noop
@@ -105,17 +107,22 @@ instance Monad (DummyContext p) where
 instance Arbitrary (DummyContext p a) where
     arbitrary = pure DummyContext
 
-instance Arbitrary (Signal (DummyContext a) a) where
+
+instance Arbitrary Natural where
+    arbitrary = fromInteger . getPositive <$> arbitrary
+
+instance (Arbitrary a, Actor a) => Arbitrary (Signal (DummyContext a) a) where
   arbitrary = oneof
         [ pure Created
-        , do b <- arbitrary
-             pure $ Obit (ActorRef b :: ActorRef a) 
+        , do aId <- arbitrary
+             a <- arbitrary
+             pure $ Obit (ActorRef aId :: ActorRef a) a
         ]
 
 
-type SomeSignal = Signal (DummyContext ('Root CreatesActor)) CreatesActor
+type SomeSignal = Signal (DummyContext CreatesActor) CreatesActor
 type SomeRootActor = RootActor '[TrivialActor, PlainMessageActor]
-type VoidDummyCtx = DummyContext ('Root (RootActor '[]))
+type VoidDummyCtx = DummyContext (RootActor '[])
 
 instance Arbitrary (RootActor l) where
     arbitrary = pure mempty
@@ -128,22 +135,14 @@ tests = testGroup "Dakka.Actor"
                 \ (s :: SomeSignal) -> s === s
             , testProperty "a == b" $
                 \ (a :: SomeSignal) (b :: SomeSignal) -> case (a, b) of
-                    (Created, Created) -> a === b
-                    (Obit a', Obit b') -> (a == b) === (a' `eqRef` b')
-                    _                  -> (a == b) === False
+                    (Created, Created)             -> a === b
+                    (Obit refA' a', Obit refB' b') -> (a == b) === (refA' =~= refB' && a' =~= b')
+                    _                              -> (a == b) === False
             ]
         , testProperty "Show" $
             \ (s :: SomeSignal) -> case s of
-                Obit r  -> show s === "Obit (" ++ show r ++ ")"
+                Obit refA a  -> show s === "Obit (" ++ show refA ++ ") " ++ show a
                 Created -> show s === "Created <<CreatesActor>>"
-        , testGroup "ActorMessage"
-            [ testProperty "eqMsg = (==)" $
-                \ (a :: Bool VoidDummyCtx) b -> (a `eqMsg` b) === (a == b)
-            , testProperty "showsPrec = showsMsg" $
-                \ (a :: (Maybe Bool) VoidDummyCtx) str b 
-                    -> let d = if b then 5 else 11
-                        in showsPrec d a str === showsMsg d a str
-            ]
         ]
     , testGroup "RootActor"
         [ testMonoid @SomeRootActor

@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -10,7 +11,7 @@
 {-# LANGUAGE LambdaCase #-}
 module TestActors where
 
-import "base" Data.Typeable ( Typeable, Proxy(..) )
+import "base" Data.Proxy ( Proxy(..) )
 import "base" GHC.Generics ( Generic )
 import "base" Control.Applicative ( Const(..) )
 
@@ -26,7 +27,7 @@ import "binary" Data.Binary ( Binary )
 -- | Actor with all bells and whistles.
 newtype TestActor = TestActor
     { i :: Int
-    } deriving (Show, Eq, Typeable)
+    } deriving (Show, Eq, Generic, Binary)
 
 instance Semigroup TestActor where
     (TestActor a) <> (TestActor b) = TestActor (a + b)
@@ -78,13 +79,13 @@ t = apply (Proxy @(Const String Int))
 data Turnstile
     = Locked
     | Unlocked
-  deriving (Show, Eq, Typeable)
+  deriving (Show, Eq, Generic, Binary)
 
 -- | Turnstile message
 data TurnstileInput
     = Coin
     | Push
-  deriving (Show, Eq, Typeable)
+  deriving (Show, Eq, Generic, Binary)
 
 instance Actor Turnstile where
     type Message Turnstile = TurnstileInput
@@ -103,12 +104,11 @@ instance Actor Turnstile where
 
 -- | Actor with custom message type.
 -- This one also communicates with another actor and expects a response.
-newtype Msg = Msg String deriving (Show, Eq, Generic)
-instance Binary Msg
+newtype Msg = Msg String deriving (Show, Eq, Generic, Binary)
 instance Convertible String Msg where
     convert = Msg
 
-data OtherActor = OtherActor deriving (Show, Eq, Generic)
+data OtherActor = OtherActor deriving (Show, Eq, Generic, Binary)
 
 instance Actor OtherActor where
     type Message OtherActor = Msg
@@ -123,7 +123,7 @@ instance Actor OtherActor where
 
 
 -- | Actor that handles references to other Actors
-data WithRef = WithRef deriving (Show, Eq, Typeable)
+data WithRef = WithRef deriving (Show, Eq, Generic, Binary)
 instance Actor WithRef where
     type Message WithRef = AnswerableMessage String
     onSignal = noop

@@ -12,46 +12,37 @@
 module Main where
 
 import "base" Data.Functor ( void )
-import "base" Data.Typeable ( Typeable )
-import "base" Control.Applicative ( Const(..) )
+import "base" Numeric.Natural ( Natural )
 
-import "transformers" Control.Monad.Trans.State.Lazy ( StateT, runStateT )
-import "transformers" Control.Monad.Trans.Reader ( ReaderT )
-import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
+import "transformers" Control.Monad.Trans.State.Lazy ( StateT )
 import "transformers" Control.Monad.Trans.Class ( lift )
 
 import "mtl" Control.Monad.State.Class ( MonadState(..) )
-import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
 
 import "network-transport-tcp" Network.Transport.TCP (createTransport, defaultTCPParameters)
 import "distributed-process" Control.Distributed.Process
 import "distributed-process" Control.Distributed.Process.Node
 
 import qualified "dakka" Dakka.Actor as A
-import "dakka" Dakka.Path
+import "dakka" Dakka.Convert ( Convertible(..) )
 
 
-type ActorPid (p :: Path *) = Const ProcessId p
-instance A.ActorRef (Const ProcessId) 
-
-newtype DistributedActorContext (p :: Path *) a = DistributedActorContext (StateT (Tip p) Process a)
+newtype DistributedActorContext a v = DistributedActorContext (StateT a Process v)
   deriving (Functor, Applicative, Monad)
 
-instance (a ~ Tip p) => MonadState a (DistributedActorContext p) where
+instance MonadState a (DistributedActorContext a) where
     state = DistributedActorContext . state
 
+liftProcess :: Process v -> DistributedActorContext a v
 liftProcess = DistributedActorContext . lift
 
-instance Typeable p => A.ActorRef (A.CtxRef (DistributedActorContext p))
+instance Convertible Natural ProcessId where
+    convert = 0
+instance Convertible ProcessId Natural
 
-instance ( A.ActorRefConstraints p
-         , MonadState (Tip p) (DistributedActorContext p)
-         ) => A.ActorContext (DistributedActorContext p) where
-    data CtxRef  (DistributedActorContext p) q = ActorId ProcessId
-        deriving (Eq, Show)
-    type CtxPath (DistributedActorContext p) = p 
-    self = ActorId <$> liftProcess getSelfPid
-    (ActorId pid) ! m = liftProcess $ send pid m
+instance (A.Actor a, MonadState a (DistributedActorContext a)) => A.ActorContext a (DistributedActorContext a) where
+    self = A.ActorRef . convert <$> liftProcess getSelfPid
+    (A.ActorRef pid) ! m = liftProcess $ send (convert pid) m
 
 main :: IO ()
 main = do

@@ -23,17 +23,16 @@ import Spec.Dakka.PathArbitrary ()
 
 import "dakka" Dakka.MockActorContext
 import "dakka" Dakka.Actor
-import "dakka" Dakka.Path
 
 
-type SomePath = CtxRef (MockActorContext ('Root PlainMessageActor)) ('Root PlainMessageActor)
+type SomePath = ActorRef PlainMessageActor
 
 somePath :: SomePath
-somePath = ActorPath $ root @PlainMessageActor
+somePath = ActorRef mempty
 
 
-instance Arbitrary (HPathT p ()) => Arbitrary (CtxRef (MockActorContext p) p) where
-    arbitrary = ActorPath <$> arbitrary
+instance Arbitrary (ActorRef a) where
+    arbitrary = ActorRef <$> arbitrary
 
 tests :: TestTree
 tests = testGroup "Dakka.MockActorContext"
@@ -43,10 +42,10 @@ tests = testGroup "Dakka.MockActorContext"
                 show (Create (Proxy @TrivialActor)) @=? "Create <<TrivialActor>>"
             , testCase "Create <<GenericActor Int>>" $
                 show (Create (Proxy @(GenericActor Int))) @=? "Create <<GenericActor Int>>"
-            , testCase "Send {to = (ActorPath /TrivialActor:()/), msg = (PlainMessage ())}" $
-                show Send{ to  = ActorPath (root @TrivialActor)
-                         , msg = PlainMessage @() @(MockActorContext ('Root TrivialActor)) ()
-                         } @=? "Send {to = (ActorPath /TrivialActor:()/), msg = (PlainMessage ())}"
+            , testCase "Send {to = (ActorRef /TrivialActor:()/), msg = (PlainMessage ())}" $
+                show Send{ to  = ActorRef @TrivialActor mempty 
+                         , msg = ()
+                         } @=? "Send {to = (ActorRef /TrivialActor:()/), msg = (PlainMessage ())}"
             ]
         , testGroup "Eq"
             [ testCase "Create = Create" $
@@ -55,21 +54,16 @@ tests = testGroup "Dakka.MockActorContext"
                 \ (a :: SomePath) (a' :: SomePath) b b' -> (Send a b == Send a' b') === (a == a' && b == b')
             ]
         ]
-    , testGroup "ActorPath"
+    , testGroup "ActorRef"
         [ testGroup "Eq"
-            [ testProperty "ActorPath p == ActorPath q = p == q" $
-                \ (p :: HPathT ('Root ()) ()) q ->  (ActorPath p == ActorPath q) === (p == q)
-            , testProperty "a == b = a `eqRef` b" $
-                \ (a :: SomePath) b -> (a == b) === (a `eqRef` b)
+            [ testProperty "ActorRef p == ActorRef q = p == q" $
+                \ p q ->  (ActorRef @TrivialActor p == ActorRef q) === (p == q)
             ]
         , testGroup "Show"
-            [ testProperty "ActorPath /():id/" $
-                \ (p :: HPathT ('Root ()) ()) -> show (ActorPath p) === ("ActorPath " ++ show p)
-            , testProperty "ActorPath /():id/():id/" $
-                \ (p :: HPathT ('Root () ':/ ()) ()) -> show (ActorPath p) === ("ActorPath " ++ show p)
-            , testProperty "showsPrec = showsRef" $
-                \ (p :: SomePath) s b -> let d = if b then 5 else 11
-                                          in showsPrec d p s === showsRef d p s
+            [ testProperty "ActorRef /():id/" $
+                \ p -> show (ActorRef @TrivialActor p) === ("ActorRef " ++ show p)
+            , testProperty "ActorRef /():id/():id/" $
+                \ p -> show (ActorRef @TrivialActor p) === ("ActorRef " ++ show p)
             ]
         ]
     , testGroup "MockActorContext"
@@ -79,12 +73,12 @@ tests = testGroup "Dakka.MockActorContext"
             , testGroup "create"
                 [ testCase "returns new path" $
                     evalMockRoot' @CreatesActor (create @TrivialActor)
-                        @=? ActorPath (root @CreatesActor </> Proxy @TrivialActor) 
+                        @=? ActorRef mempty 
                 , testCase "fires Create message" $
                     snd (execMockRoot' @CreatesActor (create @TrivialActor)) @=? [Create (Proxy @TrivialActor)]
                 ]
             , testCase "send" $
-                snd (execMock' somePath (self >>= (! PlainMessage "hello"))) @=? [Send somePath (PlainMessage "hello")]
+                snd (execMock' somePath (self >>= (! "hello"))) @=? [Send somePath "hello"]
             ]
         , testGroup "MonadState"
             [ testCase "state" $

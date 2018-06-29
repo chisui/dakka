@@ -36,10 +36,11 @@ module Dakka.Actor.Base
     ) where
 
 import "base" Data.Kind ( Constraint )
-import "base" Numeric.Natural ( Natural )
 import "base" Data.Typeable ( Typeable, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" GHC.Generics ( Generic )
+
+import "bytestring" Data.ByteString ( ByteString )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
 
@@ -57,7 +58,7 @@ import Dakka.HasStartState ( HasStartState(..) )
 --  ActorRef  --
 -- ---------- --
 
-newtype ActorRef a = ActorRef { actorId :: Natural }
+newtype ActorRef a = ActorRef { actorId :: ByteString }
   deriving (Eq, Generic, Functor)
 
 eqRef :: (Typeable a, Typeable b) => ActorRef a -> ActorRef b -> Bool

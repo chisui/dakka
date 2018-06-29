@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
@@ -17,6 +18,9 @@ import "base" Type.Reflection
 import "base" Data.Proxy ( Proxy(..) ) 
 import "base" Data.Void ( Void ) 
 
+import "binary" Data.Binary ( Binary )
+
+
 import Dakka.Actor.Base ( Actor( Creates, Message, behavior )
                         , Signal(..), ActorAction
                         , create, noop
@@ -26,7 +30,7 @@ import Dakka.HasStartState ( HasStartState )
 
 
 data RootActor (l :: [*]) = RootActor
-    deriving (Eq, Ord, Typeable, Generic)
+    deriving (Eq, Ord, Generic, Binary)
 instance Semigroup (RootActor l) where
     (<>) = const id
 instance Monoid (RootActor l) where

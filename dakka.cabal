@@ -44,6 +44,7 @@ library
   build-depends:       base
                      , containers
                      , transformers
+                     , bytestring
                      , contravariant
                      , mtl
                      , binary
@@ -63,6 +64,7 @@ Test-Suite dakka-test
                   , mtl
                   , dakka
                   , binary
+                  , bytestring 
                   , should-not-typecheck
                   , tasty
                   , tasty-quickcheck

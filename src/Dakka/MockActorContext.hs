@@ -76,7 +76,7 @@ instance Actor a => ActorContext a (MockActorContext a) where
 
     create' a = do
         tell [Create a]
-        return $ ActorRef 0
+        return $ ActorRef mempty
 
     p ! m = tell [Send p m]
 
@@ -91,7 +91,7 @@ runMock' :: forall a v. Actor a => ActorRef a -> MockActorContext a v -> (v, Moc
 runMock' ar ctx = runMock ar ctx startState
 
 runMockRoot :: forall a v. MockActorContext a v -> a -> (v, MockResult a)
-runMockRoot = runMock $ ActorRef 0 
+runMockRoot = runMock $ ActorRef mempty 
 
 runMockRoot' :: forall a v. Actor a => MockActorContext a v -> (v, MockResult a)
 runMockRoot' ctx = runMockRoot ctx startState

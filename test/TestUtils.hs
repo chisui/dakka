@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-} -- Arbitrary
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -11,9 +12,15 @@ module TestUtils ( (@~?), testMonoid, testSemigroup, testIsList ) where
 import "base" Data.Typeable ( Typeable, typeRep )
 import "base" GHC.Exts ( IsList(..) )
 
+import "bytestring" Data.ByteString ( ByteString, pack )
+
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( assertEqual, Assertion )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( Arbitrary, testProperty, (===), NonEmptyList(..) )
+import "tasty-quickcheck" Test.Tasty.QuickCheck ( Arbitrary(..), testProperty, (===), NonEmptyList(..) )
+
+
+instance Arbitrary ByteString where
+    arbitrary = pack <$> arbitrary
 
 
 (@~?) :: forall (a :: k0) (b :: k1) proxy0 proxy1. (Typeable a, Typeable b) => proxy0 a -> proxy1 b -> Assertion

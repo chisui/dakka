@@ -20,6 +20,9 @@ import "base" Data.Functor.Classes ( Eq1(..), Show1, Eq2(..) )
 import "base" Unsafe.Coerce ( unsafeCoerce ) -- used for 'downCast'
 import "base" Data.Function ( on )
 
+import "binary" Data.Binary ( Binary )
+
+
 type family (e :: k) :∈ (l :: [k]) :: Constraint where
     e :∈ (e ': as) = ()
     e :∈ (a ': as) = e :∈ as
@@ -55,7 +58,7 @@ type family (c :: k -> Constraint) `ImplementedByAll` (l :: [k]) :: Constraint w
     c `ImplementedByAll` '[] = ()
 
 
-type RichData  a = (Typeable a, Eq  a, Show  a)
+type RichData  a = (Typeable a, Eq  a, Show  a, Binary a)
 type RichData1 a = (Typeable a, Eq1 a, Show1 a)
 
 (=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool
