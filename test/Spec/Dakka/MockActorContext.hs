@@ -13,6 +13,7 @@ import "base" Data.Proxy ( Proxy(..) )
 
 import "mtl" Control.Monad.State.Class ( modify )
 
+import "bytestring" Data.ByteString.Lazy ( pack ) 
 
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
@@ -32,7 +33,7 @@ somePath = ActorRef mempty
 
 
 instance Arbitrary (ActorRef a) where
-    arbitrary = ActorRef <$> arbitrary
+    arbitrary = ActorRef . pack <$> arbitrary
 
 tests :: TestTree
 tests = testGroup "Dakka.MockActorContext"

@@ -24,6 +24,7 @@ import "base" Data.Proxy ( Proxy(..) )
 import "binary" Data.Binary ( Binary )
 
 import "mtl" Control.Monad.State.Class ( MonadState(..) )
+import "bytestring" Data.ByteString.Lazy ( pack ) 
 
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
@@ -114,7 +115,7 @@ instance Arbitrary Natural where
 instance (Arbitrary a, Actor a) => Arbitrary (Signal (DummyContext a) a) where
   arbitrary = oneof
         [ pure Created
-        , do aId <- arbitrary
+        , do aId <- pack <$> arbitrary
              a <- arbitrary
              pure $ Obit (ActorRef aId :: ActorRef a) a
         ]
