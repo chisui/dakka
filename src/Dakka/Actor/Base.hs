@@ -40,7 +40,7 @@ import "base" Data.Typeable ( Typeable, typeRep )
 import "base" Data.Proxy ( Proxy(..) )
 import "base" GHC.Generics ( Generic )
 
-import "bytestring" Data.ByteString ( ByteString )
+import "bytestring" Data.ByteString.Lazy ( ByteString )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
 

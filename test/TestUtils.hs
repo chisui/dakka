@@ -12,7 +12,7 @@ module TestUtils ( (@~?), testMonoid, testSemigroup, testIsList ) where
 import "base" Data.Typeable ( Typeable, typeRep )
 import "base" GHC.Exts ( IsList(..) )
 
-import "bytestring" Data.ByteString ( ByteString, pack )
+import "bytestring" Data.ByteString.Lazy ( ByteString, pack )
 
 import "tasty" Test.Tasty ( testGroup, TestTree )
 import "tasty-hunit" Test.Tasty.HUnit ( assertEqual, Assertion )

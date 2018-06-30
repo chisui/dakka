@@ -19,8 +19,10 @@ executable cloud-test
   build-depends:       base
                      , transformers
                      , mtl
+                     , binary 
                      , dakka
                      , distributed-process
+                     , network-transport
                      , network-transport-tcp
   main-is:             Main.hs
   default-language:    Haskell2010
@@ -34,8 +36,8 @@ library
                      , Dakka.MockActorContext
                      , Dakka.RemoteTableState
                      , Dakka.Convert
-  other-modules:       Dakka.Constraints
-                     , Dakka.Path.Base
+                     , Dakka.Constraints
+  other-modules:       Dakka.Path.Base
                      , Dakka.Path.PathSegment
                      , Dakka.Path.HPathT
                      , Dakka.Actor.Base
