@@ -42,28 +42,16 @@ tests = testGroup "Dakka.MockActorContext"
                 show (Create (Proxy @TrivialActor)) @=? "Create <<TrivialActor>>"
             , testCase "Create <<GenericActor Int>>" $
                 show (Create (Proxy @(GenericActor Int))) @=? "Create <<GenericActor Int>>"
-            , testCase "Send {to = (ActorRef /TrivialActor:()/), msg = (PlainMessage ())}" $
+            , testCase "Send {to = (ctorRef <<TrivialActor>>@\"\"), msg = ()}" $
                 show Send{ to  = ActorRef @TrivialActor mempty 
                          , msg = ()
-                         } @=? "Send {to = (ActorRef /TrivialActor:()/), msg = (PlainMessage ())}"
+                         } @=? "Send {to = (ActorRef <<TrivialActor>>@\"\"), msg = ()}"
             ]
         , testGroup "Eq"
             [ testCase "Create = Create" $
                 Create (Proxy @TrivialActor) @=? Create (Proxy @TrivialActor)
             , testProperty "Send a b = Send a b" $
                 \ (a :: SomePath) (a' :: SomePath) b b' -> (Send a b == Send a' b') === (a == a' && b == b')
-            ]
-        ]
-    , testGroup "ActorRef"
-        [ testGroup "Eq"
-            [ testProperty "ActorRef p == ActorRef q = p == q" $
-                \ p q ->  (ActorRef @TrivialActor p == ActorRef q) === (p == q)
-            ]
-        , testGroup "Show"
-            [ testProperty "ActorRef /():id/" $
-                \ p -> show (ActorRef @TrivialActor p) === ("ActorRef " ++ show p)
-            , testProperty "ActorRef /():id/():id/" $
-                \ p -> show (ActorRef @TrivialActor p) === ("ActorRef " ++ show p)
             ]
         ]
     , testGroup "MockActorContext"

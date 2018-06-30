@@ -141,14 +141,14 @@ tests = testGroup "Dakka.Actor"
             ]
         , testProperty "Show" $
             \ (s :: SomeSignal) -> case s of
-                Obit refA a  -> show s === "Obit (" ++ show refA ++ ") " ++ show a
+                Obit refA a  -> show s === "Obit " ++ show refA ++ " " ++ show a
                 Created -> show s === "Created <<CreatesActor>>"
         ]
     , testGroup "RootActor"
         [ testMonoid @SomeRootActor
         , testGroup "Show"
-            [ testCase "RootActor <<[TrivialActor,CustomMessageActor]>>" $
-                show (mempty @SomeRootActor) @=? "RootActor <<[TrivialActor,CustomMessageActor]>>" 
+            [ testCase "RootActor <<[TrivialActor,PlainMessageActor]>>" $
+                show (mempty @SomeRootActor) @=? "RootActor <<[TrivialActor,PlainMessageActor]>>" 
             , testCase "RootActor <<[]>>" $
                 show (mempty @(RootActor '[])) @=? "RootActor <<[]>>"
             ] 

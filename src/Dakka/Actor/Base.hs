@@ -66,7 +66,7 @@ eqRef refA@(ActorRef idA) refB@(ActorRef idB) = idA == idB && typeRep refA == ty
 
 instance Typeable a => Show (ActorRef a) where
     showsPrec d ref@(ActorRef aId) = showParen (d > 10)
-                                   $ showString "ActorPath <<"
+                                   $ showString "ActorRef <<"
                                    . shows (typeRep ref)
                                    . showString ">>@"
                                    . shows aId
