@@ -179,15 +179,15 @@ We can also provide an akka-style send operator as a convenient alias for `send`
 ### create
 
 ```haskell
-create' :: Actor a => Proxy a -> ActorContext b ()
-create' a = tell [Create a]
+create' :: Actor b => Proxy b -> ActorContext a ()
+create' b = tell [Create b]
 ```
 
 As idicated by the `'` this version of create is not intendet to be the main one. For that we define:
 
 ```haskell
-create :: forall a. Actor a => ActorContext b ()
-create = create' (Proxy @a)
+create :: forall b a. Actor b => ActorContext a ()
+create = create' (Proxy @b)
 ```
 
 In combination with `TypeApplications` this enables us to create actors by just writing `create @TheActor` instead of the cumbersome `create' (Proxy :: Proxy TheActor)`.
@@ -212,9 +212,110 @@ Additionally it would be useful for actors to have a way to get a reference to t
 self :: ActorContext a (ActorRef a)
 ```
 
+To `ActorContext`.
+
 #### Composing references
 
+If we assume that a reference to an actor is represented by the actors path relative to the actor system root we could in theory compose actor references or even create our own. To do this in a typesafe manner we need to know what actors an actor may create. For this we add a new type family to the `Actor` class.
+
+```haskell
+    type Creates a :: [*]
+    type Creates a = '[]
+```
+
+This type family is of kind `[*]` so it's a list of all actor types this actor can create. We additionally provide a default that is the empty list. So if we don't override the `Creates` type family for a specific actor we assume that this actor does not create any other actors.
+
+We can now also use this typefamily to enforce this assumption on the `create'` and `create` functions.
+
+```haskell
+create' :: (Actor b, Elem b (Creates a)) => Proxy b -> ActorContext a ()
+```
+
+Where `Elem` is a typefamily of kind `k -> [k] -> Constraint` that works the same as `elem` only on the type level.
+
+```haskell
+type family Elem (e :: k) (l :: [k]) :: Constraint where
+    Elem e (e ': as) = ()
+    Elem e (a ': as) = Elem e as
+```
+
+There are three things to note with this type family:
+
+1. it is partial. it has no pattern for the empty list. Since it's kind is `Constraint` this means the constraint isn't met if we would enter that case either explicitly or through recursion.
+2. The first pattern of `Elem` is non-linear. That means that a variable appears twice. `e` appears as the first parameter and as the first element in the list. This is only permitted on type families in Haskell. Without this feature it would be quite hard to define this type family at all.
+3. We leverage that n-tuples of `Constraints` are `Constraints` themselves. In this case `()` can be seen as an 0-tuple and thus equates to `Constraint` that always holds.
+
+The `Creates` typefamily is incredibly useful for anything we want to do that concerns the hirarchy of the typesystem. For example we could ensure that all actors in a given actor system fulfill a certain constraint. 
+
+```haskell
+type family AllActorsImplement (c :: * -> Constraint) (a :: *) :: Constraint where
+    AllActorsImplement c a = (c a, AllActorsImplementHelper c (Creates a))
+type family AllActorsImplementHelper (c :: * -> Constraint) (as :: [*]) :: Constraint where
+    AllActorsImplementHelper c '[]       = ()
+    AllActorsImplementHelper c (a ': as) = (AllActorsImplement c a, AllActorsImplementHelper c as)
+```
+
+We can also enumerate all actor types in a given actor system.
+
+What we can't do unfortunatly is create a type of kind `Data.Tree` that represents the whole actor system since it may be infinite. The following example shows this.
+
+```haskell
+data A = A
+instance Actor A where
+    type Creates A = '[B]
+    ...
+
+data B = B
+instance Actor B where
+    type Creates B = '[A]
+    ...
+```
+
+The type for an actor system that starts with `A` would have to be `'Node A '[Node B '[Node A '[...]]]`. What we can represent as a type though is any finite path inside this tree.
+
+Since any running actor system has to be finite we can use the fact that we can represent finite paths inside an actor system for our actor references. We can parametrize our actor references by the path of the actor that it refers to.
+  
 #### Implemenation specific references
+
+Different implementations of `ActorContext` might want to use different datatypes to refer to actors. In our simple implemenation we are using `Word` but we can't assume that every implementation wants to use it.
+
+The most obvious way to achieve this is to associate a given `ActorContext` implementation with a specific reference type. This can be done using an additional type variable on the class, a type family or a data family. Here the data family seems the best choice since it's injective. The injectivity allows us to not only know the reference type from from an `ActorContext` implementation but also the other way round.
+
+```haskell
+    data CtxRef m :: * -> *
+```
+
+Additionally we have to add some constraints to `CtxRef` since we need to be able to serialize it, equality and a way to show them would also be nice. For this we can reuse the `RichData` constraint. 
+
+```haskell
+class (RichData (CtxRef m)), ...) => ActorContext ... where
+```
+
+Now we have another problem though. Messages should be able to include actor references. If the type of these references now depends on the `ActorContext` implementation we need a way for messages to know this reference type. We can achieve this by adding the actor context as a parameter to the `Message` type family.
+
+```haskell
+  type Message a :: (* -> *) -> *
+```
+
+Here we come in a bind because of the way we chose to define `ActorContext` unfortunatly. The problem is the functional dependency in `ActorContext a m | m -> a`. It states that we know `a` if we know `m`. This means that if we expose `m` to `Message` the message is now bound to a specific `a`. This is problematic though since we only want to expose the type of reference not the actor type of the current context to the `Message`. Doing so would bloat every signature that wants to move a message from one context to another with equivalence constraints like 
+
+```haskell
+forall a b m n. (ActorContext a m, ActorContext b n, Message a m ~ Message b n) => ...
+```
+
+This is cumbersome and adds unnessecary complexity.
+
+What we might do instead is add the reference type itself as a parameter to `Message`. This eliviates the problem only a little bit though since we need the actual `ActorContext` type to retrieve the concrete reference type. So we would only delay the constraint dance and move it a little bit. These constraints meant many additional type parameters to types and functions that don't actually care about them. Error messages for users would also suffer.
+
+In the end I decided to ditch the idea of `ActorContext` implementation specific reference types. And went another route.
+
+Since actor references have to be serializable anyway we can represent them by a `ByteString`.
+
+```haskell
+newtype ActorRef a = ActorRef ByteString
+```
+
+This might go a little against our ideal that we want to keep the code as typesafe as possible but it's not as bad as you might think. Firstly other datatypes that might have taken the place of `ByteString` wouldn't be any safer. We can still keep the user from being able to create references by themselves by not exporting the `ActorRef` constructor. We could expose it to `ActorContext` implementers through an interal package.
 
 #### Answering messages
 
