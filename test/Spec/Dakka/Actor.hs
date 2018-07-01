@@ -24,6 +24,7 @@ import "base" Data.Proxy ( Proxy(..) )
 import "binary" Data.Binary ( Binary )
 
 import "mtl" Control.Monad.State.Class ( MonadState(..) )
+
 import "bytestring" Data.ByteString.Lazy ( pack ) 
 
 import "tasty" Test.Tasty ( testGroup, TestTree )

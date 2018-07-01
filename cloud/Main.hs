@@ -17,7 +17,7 @@ module Main (main) where
 import "base" Data.Functor ( void )
 import "base" Data.Proxy ( Proxy )
 
-import "transformers" Control.Monad.Trans.State.Lazy ( StateT )
+import "transformers" Control.Monad.Trans.State.Lazy ( StateT, execStateT )
 import "transformers" Control.Monad.Trans.Class ( lift )
 
 import "mtl" Control.Monad.State.Class ( MonadState(..) )
@@ -42,12 +42,15 @@ instance MonadState a (DistributedActorContext a) where
 liftProcess :: Process v -> DistributedActorContext a v
 liftProcess = DistributedActorContext . lift
 
+expectMessage :: (A.Actor a, ImplementsAll (DistributedActorContext a) (A.Capabillities a)) => DistributedActorContext a ()
+expectMessage = A.behavior =<< Right <$> liftProcess expect
+
 instance A.Actor a => A.ActorContext a (DistributedActorContext a) where
     self = A.ActorRef . encode <$> liftProcess getSelfPid
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
     create' :: forall b. ( A.Actor b, b :∈ A.Creates a ) => Proxy b -> DistributedActorContext a (A.ActorRef b) 
     create' _ = liftProcess $ do
-        let nodeId = undefined
+        nodeId <- getSelfNode -- only spawn on this node for now. Maybe create some kind of loadbalancing mechanism?
         let staticRunActor = undefined
         let b = A.startState @b
         pid <- spawn nodeId (staticRunActor b)
