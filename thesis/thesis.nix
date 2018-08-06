@@ -1,4 +1,4 @@
-{ mkDerivation, pandoc, pandoc-include-code, pandoc-citeproc, texlive, eisvogel, csl, book }:
+{ mkDerivation, pandoc, pandoc-citeproc, texlive, eisvogel, csl, book }:
 
 mkDerivation {
   name    = "dakka-thesis";
@@ -9,7 +9,6 @@ mkDerivation {
 
   buildInputs = [
     pandoc
-    pandoc-include-code
     pandoc-citeproc
     texlive
   ];
@@ -24,7 +23,6 @@ mkDerivation {
       --from markdown \
       --listings \
       --toc \
-      --filter pandoc-include-code \
       --filter pandoc-citeproc \
       --bibliography ./thesis/bibliography.bib \
       --csl ${csl}/journal-of-computer-information-systems.csl \

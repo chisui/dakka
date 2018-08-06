@@ -6,13 +6,11 @@ with import <nixpkgs> {};
   mkDerivation = stdenv.mkDerivation;
 
   texlive = texlive.combine {
-    inherit (texlive) scheme-small pagecolor csquotes mdframed needspace sourcesanspro ly1 mweights sourcecodepro titling;
+    inherit (texlive) scheme-basic collection-fontsrecommended pagecolor koma-script csquotes mdframed needspace sourcesanspro ly1 mweights sourcecodepro titling lm listings float xcolor setspace etoolbox caption l3packages l3kernel xkeyval;
   };
 
   pandoc = pandoc;
   pandoc-citeproc = haskellPackages.pandoc-citeproc;
-  # doesn't currently build until https://github.com/owickstrom/pandoc-include-code/pull/12 is merged 
-  pandoc-include-code = pkgs.haskell.lib.dontCheck pkgs.haskellPackages.pandoc-include-code;
 
   eisvogel = pkgs.fetchFromGitHub {
     owner  = "Wandmalfarbe";
