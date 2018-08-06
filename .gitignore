@@ -1,5 +1,6 @@
 .stack-work/
 *.tix
+*.pdf
 result
 log
 dist/

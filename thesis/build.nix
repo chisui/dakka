@@ -5,7 +5,9 @@ with import <nixpkgs> {};
 (import ./thesis.nix) {
   mkDerivation = stdenv.mkDerivation;
 
-  texlive = texlive.combined.scheme-full;
+  texlive = texlive.combine {
+    inherit (texlive) scheme-small pagecolor csquotes mdframed needspace sourcesanspro ly1 mweights sourcecodepro titling;
+  };
 
   pandoc = pandoc;
   pandoc-citeproc = haskellPackages.pandoc-citeproc;
