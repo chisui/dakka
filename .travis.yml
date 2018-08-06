@@ -6,3 +6,16 @@ cache:
   directories:
     - /nix/store
 sudo: true
+after_success: |
+  if [ -n "$GITHUB_API_KEY" ]; then
+    cd "$TRAVIS_BUILD_DIR"
+    mkdir
+    cd web
+    git init
+    git checkout -b gh-pages
+    cp $TRAVIS_BUILD_DIR/result/thesis.pdf .
+    git add .
+    git -c user.name='travis' -c user.email='travis' commit -m init
+    git push -f -q https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka gh-pages &2>/dev/null
+    cd "$TRAVIS_BUILD_DIR"
+  fi
