@@ -9,7 +9,8 @@ sudo: true
 after_success: |
   if [ -n "$GITHUB_API_KEY" ]; then
     cd "$TRAVIS_BUILD_DIR"
-    git clone https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka web
+    git clone https://github.com/chisui/dakka web
+    cd web
     git checkout gh-pages
     cp -f $TRAVIS_BUILD_DIR/result/thesis.pdf thesis.pdf
     git add .
