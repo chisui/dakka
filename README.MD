@@ -13,9 +13,9 @@ A dependently typed actor framework for haskell.
 
     nix-build thesis
 
-This may take some time on the first build since we need to use the `texlive.combined.scheme-full` package.
-
 You can also build a book version with
 
     nix-build thesis/book.nix
+
+Check out a build pdf version of the current master version [here](https://chisui.github.io/dakka/thesis.pdf).
 
