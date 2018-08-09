@@ -17,6 +17,12 @@ toc-own-page: yes
 
 The goal of this thesis is to create an Actor framework, simlar to akka for Haskell. It should be possible to reason about a actor system without having to run it to ensure some safty assumtions. To achieve this I will leverage some of haskells dependent typing features. It should also be possible to easily test actor implementations without creating a full actor system. 
 
+## Goals
+
+I want to create an actor framework for Haskell that leverages the typesystem to provide safety where possible. The main area where the typesystem can be helpfull is by ensuring that only messages can be sent that are can be handled by the recieving actor. It should ideally be possible for the user to add further constraints on messages and actors or other parts of the system. 
+
+Runtime components of this actor framework should be serializable if at all possible to provide. Serializabillity is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can sore the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
+
 # Thechnical considerations
 
 ## Language choice
@@ -52,7 +58,7 @@ Unfortunatly Cloud Haskell has to be somewhat oppinionated since some features i
 
 ## Akka
 
-Akka is an actor framework written in scala for the jvm. It heavily leverages functional programming concepts in its implementation. 
+Akka is an actor framework written in scala for the jvm. It's one of the most widely used  It heavily leverages functional programming concepts in its implementation. 
 
 # Implementation
 
