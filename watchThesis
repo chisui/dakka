@@ -1,0 +1,10 @@
+#! /bin/sh
+evince thesis.pdf &
+cleanup() {
+  DISABLE_AUTO_TITLE="false"
+}
+trap cleanup EXIT
+DISABLE_AUTO_TITLE="true"
+echo -en "\033]0;initalizing\007"
+echo "thesis/main.md" | entr -s "echo -en \"\033]0;rebuilding\007\" && nix-build thesis && ln -fs result/thesis.pdf thesis.pdf && echo -en \"\033]0;waiting\007\""
+

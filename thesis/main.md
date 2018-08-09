@@ -32,7 +32,7 @@ Another concern is my knowledge of other languages. I already have extensive kno
 
 ## Build tool
 
-There are several build tools and build tool combinations for haskell that are commonly used. None of these is the default solution though. The main one is `cabal` wich is essentially required for any kind of Haskell development. There are wrappers for `cabal` that provide additional features and help organize dependencies. It is highly recommended to use one of those wrappers since using cabal without one can be very cumbersome. One of the main issues of cabal is that it installs all dependencies of projects globaly. When working with multiple Haskell projects this will inevitably lead to conflicts and will land you in the so called *cabal hell*. There were attempts to mitigate these issues in cabal directly but these are cumbersome (sandboxes) to use or aren't finished yet (cabal new-build).
+There are several build tools and build tool combinations for haskell that are commonly used. None of these is  The main one is `cabal` wich is essentially required for any kind of Haskell development. There are wrappers for `cabal` that provide additional features and help organize dependencies. It is highly recommended to use one of those wrappers since using cabal without one can be very cumbersome. One of the main issues of cabal is that it installs all dependencies of projects globaly. When working with multiple Haskell projects this will inevitably lead to conflicts and will land you in the so called *cabal hell*. There were attempts to mitigate these issues in cabal directly but these are cumbersome (sandboxes) to use or aren't finished yet (cabal new-build).
 
 The most widely that is used most often is `stack`. It's main goal is to provide reproducable builds for Haskell projects. It provides a good way of managing depedencies and Haskell projects. It works by bundling a GHC with a set of package versions that should all work with one another.
 
@@ -49,6 +49,10 @@ Cloud Haskell is described by its authors as a platform for Erlang-style concurr
 Since Erlang-style concurrency is implemented using the actor model Cloud Haskell already provides a full fledged actor framework for Haskell. In addition there are rich facillites to create distributed Haskell system. It doesn't make creating distributed systems in Haskell easy but is capable of performing the heavy lifting.
 
 Unfortunatly Cloud Haskell has to be somewhat oppinionated since some features it provides wouldn't be possible otherwise. The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. Cloud Haskell solves this through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
+
+## Akka
+
+Akka is an actor framework written in scala for the jvm. It heavily leverages functional programming concepts in its implementation. 
 
 # Implementation
 
