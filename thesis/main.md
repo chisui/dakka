@@ -15,19 +15,19 @@ toc-own-page: yes
 
 # Introduction
 
-The goal of this thesis is to create an Actor framework, simlar to akka for Haskell. It should be possible to reason about a actor system without having to run it to ensure some safty assumtions. To achieve this I will leverage some of haskells dependent typing features. It should also be possible to easily test actor implementations without creating a full actor system. 
+The goal of this thesis is to create an Actor framework, simlar to akka for Haskell. Haskell gives us many tools in its typesystem that together with Haskells purly functional nature enables us to formulate stricter constraints on actor systems. To formulate this I will leverage some of Haskells dependent typing features. Another focus of this reimplementation is the testabillity of code written using the framework.
 
-## Goals
-
-I want to create an actor framework for Haskell that leverages the typesystem to provide safety where possible. The main area where the typesystem can be helpfull is by ensuring that only messages can be sent that are can be handled by the recieving actor. It should ideally be possible for the user to add further constraints on messages and actors or other parts of the system. 
-
-Runtime components of this actor framework should be serializable if at all possible to provide. Serializabillity is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can sore the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
+I will show that leveraging Haskells advantages can be used to create an akka like actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in akka. I will also show that this approach has some downsides that mostly relate to the maturity of Haskells dependent typing features. 
 
 # Thechnical considerations
 
 ## Language choice
 
-I chose haskell as a language since it is the most widely used language that facillitates dependent typing. There are other languages like `agda` and `idris` but they don't provide what we need. 
+Even though the usage of Haskell was a hard requirement from the start I will demonstrate why it is arguably the best choice as well.
+
+Akka is written in Scala which is a multipardigm language with a heavy functional leaning mostly running on the Java Virtual Machine (JVM). Scala tries to aid integration with existing code written that runs on the JVM. Since most of the code written for the JVM is written in Java Scala has to integrate well with its imperative, object oriented nature. Haskell in contrast does not compromises its purly functional features for integration purposes. Using a purely functional language we can relie more heavily on the typesystem which is essentially a prerequisite for dependent typing.
+
+Haskell is the most widely used language that facillitates dependent typing. Scala also has support for dependent typing but not beeing purly functional somewhat dimishes that fact. There are other purly functional languages like `agda` and `idris` that support dependent typing but they have limiting factors that let Haskell still be the best choice. 
 
 - `agda` is rarely used as an acutal runtime system but rather as a proof assistent, so creating a realworld, distributed system with it is not feasable.
 - `idris` would be a good fit for dependent typing, an even better one than Haskell even since depend types are supported natively instead through language extension. The language itself seems to be a little immature at the current time though, especially the library ecosystem is extremly sparse.
@@ -48,6 +48,8 @@ If nix can hold what it promises it would be the best build tool period. So for 
 
 # Prior art
 
+## Akka
+
 ## Cloud Haskell
 
 Cloud Haskell is described by its authors as a platform for Erlang-style concurrent and distributed programming in Haskell.
@@ -55,10 +57,6 @@ Cloud Haskell is described by its authors as a platform for Erlang-style concurr
 Since Erlang-style concurrency is implemented using the actor model Cloud Haskell already provides a full fledged actor framework for Haskell. In addition there are rich facillites to create distributed Haskell system. It doesn't make creating distributed systems in Haskell easy but is capable of performing the heavy lifting.
 
 Unfortunatly Cloud Haskell has to be somewhat oppinionated since some features it provides wouldn't be possible otherwise. The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. Cloud Haskell solves this through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
-
-## Akka
-
-Akka is an actor framework written in scala for the jvm. It's one of the most widely used  It heavily leverages functional programming concepts in its implementation. 
 
 # Implementation
 
@@ -68,7 +66,23 @@ In the course of implementation we assume that several language extensions are e
 
 in the source directory.
 
+## Architecture overview
+
+The architectre consists of Three parts: 
+
+1. A way to define actors
+2. A way to define an actors behavior. This is done by creating a custom `ActorContext` monad.
+3. A way to run a actor system. This is done by evaluating the `ActorContext` monad by translating their actions to Cloud Haskell terms.
+
 ## Actor
+
+Actors in the traditional actor model may only perform one of three actions in response to recieving a message:
+
+1. send a finite number of messages to other actors.
+2. create a finite number of new actors.
+3. designate the behavior to be used for the next message it receives.
+
+Since akka is not written in a pure functional language each actor can also invoke any other piece of code. This implicit capabillity very useful for defining realworld systems. So we have to provide ways to doing something like this as well if we want to use this framework in a realworld situation. Invoking any piece of code also includes managing the actor system itself. For example stopping it all together, which also turns out to be very useful. 
 
 We need a way to identify specific actors at compile time to be able to reason about them. The best way to do so is by defining types for actors. Since Actors have a state this state type will be the type we will identify the actor with. We could have chosen the message type but the state type seems more descriptive. 
 
