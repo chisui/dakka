@@ -15,7 +15,7 @@ A dependently typed actor framework for haskell.
 
 You can also build a book version with
 
-    nix-build thesis/book.nix
+    nix-build thesis -A book
 
 Check out a build pdf version of the current master version [here](https://chisui.github.io/dakka/thesis.pdf).
 
