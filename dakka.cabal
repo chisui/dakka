@@ -37,6 +37,7 @@ library
                      , Dakka.RemoteTableState
                      , Dakka.Convert
                      , Dakka.Constraints
+                     , Dakka.HMap
   other-modules:       Dakka.Path.Base
                      , Dakka.Path.PathSegment
                      , Dakka.Path.HPathT
@@ -53,6 +54,8 @@ library
                      , distributed-process
                      , distributed-static
                      , network-transport-tcp
+                     , dependent-map
+                     , dependent-sum
   default-language:    Haskell2010
   ghc-options: -fprint-potential-instances -Wall -Werror -O2
 

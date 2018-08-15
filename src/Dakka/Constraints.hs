@@ -15,7 +15,8 @@
 module Dakka.Constraints where
 
 import "base" Data.Kind -- We need *, that can't be expressed in an import filter
-import "base" Data.Typeable ( Typeable, cast )
+import "base" Data.Typeable ( Typeable, cast, typeRep )
+import "base" Data.Proxy ( Proxy )
 import "base" Data.Functor.Classes ( Eq1(..), Show1, Eq2(..) )
 import "base" Unsafe.Coerce ( unsafeCoerce ) -- used for 'downCast'
 import "base" Data.Function ( on )
@@ -118,3 +119,15 @@ class EqShadow2 (f :: k0 -> k1 -> *) where
     default eqShadow2 :: Eq (f a b) => f a b -> f a b -> Bool 
     eqShadow2 = (==) 
 
+
+class GEq (f :: k -> *) where
+    geq :: (Typeable a, Typeable b) => f a -> f b -> Bool
+
+instance GEq Proxy where
+    geq a b = gcompare a b == EQ
+
+class GEq f => GOrd (f :: k -> *) where
+    gcompare :: (Typeable a, Typeable b) => f a -> f b -> Ordering
+
+instance GOrd Proxy where
+    gcompare a b = typeRep a `compare` typeRep b

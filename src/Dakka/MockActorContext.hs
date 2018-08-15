@@ -1,5 +1,7 @@
 {-# LANGUAGE Trustworthy #-} -- Generalized newtype deriving for MockActorContext
+{-# LANGUAGE TupleSections #-} -- Generalized newtype deriving for MockActorContext
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -23,7 +25,7 @@ import "transformers" Control.Monad.Trans.State.Lazy ( StateT, runStateT )
 import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
 
 import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState( state ) )
+import "mtl" Control.Monad.State.Class ( MonadState )
 import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
 import Dakka.Actor
@@ -67,8 +69,11 @@ newtype MockActorContext a v = MockActorContext
     (ReaderT (ActorRef a) (StateT a (Writer [SystemMessage])) v)
   deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadReader (ActorRef a))
 
+deriving instance MonadState a (MockActorContext a) 
+{-
 instance MonadState a (MockActorContext a) where
-    state = MockActorContext . state
+    state = MockActorContext . state . (\ f -> (a, id) -> (,id) <$> f a)
+  dd-}
 
 instance Actor a => ActorContext a (MockActorContext a) where
 
@@ -121,4 +126,6 @@ evalMockRoot ctx a = fst $ runMockRoot ctx a
 
 evalMockRoot' :: forall a v. Actor a => MockActorContext a v -> v 
 evalMockRoot' ctx = fst $ runMockRoot' ctx 
+
+
 

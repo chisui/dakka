@@ -351,7 +351,9 @@ This might go a little against our ideal that we want to keep the code as typesa
 
 #### Sending references 
 
-A core feature that is nesseccary for an actor system to effectivly communicate is the abillity to send actor references inside messages.
+A core feature that is nesseccary for an actor system to effectivly communicate is the abillity to send actor references as messages to other actors.
+
+The most trivial case would be that the message to actor is an actor reference itself.
 
 We need a way to respond to messages. This can be done by including a reference to the actor to respond to in the message and capturing it's `Actor` implementation.
 

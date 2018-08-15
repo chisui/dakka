@@ -15,13 +15,14 @@ import "base" Data.Proxy ( Proxy(..) )
 import "base" GHC.Generics ( Generic )
 import "base" Control.Applicative ( Const(..) )
 
-import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), create, send, noop, HasStartState(start) )
+import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), ActorRef, Signal(Created), create, send, noop, HasStartState(start) )
 import "dakka" Dakka.AnswerableMessage ( AnswerableMessage, answerableMessage, answer )
 import "dakka" Dakka.Convert ( Convertible(..) )
 
 import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
 import "mtl" Control.Monad.State.Class ( modify, get, put )
 import "binary" Data.Binary ( Binary )
+
 
 
 -- | Actor with all bells and whistles.
@@ -109,7 +110,6 @@ instance Convertible String Msg where
     convert = Msg
 
 data OtherActor = OtherActor deriving (Show, Eq, Generic, Binary)
-
 instance Actor OtherActor where
     type Message OtherActor = Msg
     type Creates OtherActor = '[WithRef]
@@ -129,4 +129,23 @@ instance Actor WithRef where
     onSignal = noop
     onMessage a = "hello" `answer` a
     startState = WithRef
+
+data Sender = Sender deriving (Show, Eq, Generic, Binary)
+instance Actor Sender where
+    type Message Sender = ActorRef Reciever
+    onSignal = noop
+    onMessage = (! "hello")
+    startState = Sender
+
+newtype Reciever = Reciever (Maybe String) deriving (Show, Eq, Generic, Binary)
+instance Actor Reciever where
+    type Message Reciever = String
+    type Creates Reciever = '[Sender]
+    onSignal Created = do
+      ref <- create @Sender
+      me <- self
+      ref ! me
+    onSignal _ = pure ()
+    onMessage = put . Reciever . Just 
+    startState = Reciever Nothing
 

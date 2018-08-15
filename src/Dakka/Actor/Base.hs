@@ -3,17 +3,18 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -44,6 +45,8 @@ import "bytestring" Data.ByteString.Lazy ( ByteString )
 
 import "mtl" Control.Monad.State.Class ( MonadState )
 
+import "binary" Data.Binary ( Binary )
+
 import Dakka.Constraints
     ( (:∈)
     , ImplementsAll, ImplementedByAll
@@ -59,7 +62,7 @@ import Dakka.HasStartState ( HasStartState(..) )
 -- ---------- --
 
 newtype ActorRef a = ActorRef { actorId :: ByteString }
-  deriving (Eq, Generic, Functor)
+  deriving (Eq, Generic, Functor, Binary)
 
 eqRef :: (Typeable a, Typeable b) => ActorRef a -> ActorRef b -> Bool
 eqRef refA@(ActorRef idA) refB@(ActorRef idB) = idA == idB && typeRep refA == typeRep refB
