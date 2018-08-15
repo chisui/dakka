@@ -294,10 +294,16 @@ instance Actor B where
 The type for an actor system that starts with `A` would have to be `'Node A '[Node B '[Node A '[...]]]`. What we can represent as a type though is any finite path inside this tree.
 
 Since any running actor system has to be finite we can use the fact that we can represent finite paths inside an actor system for our actor references. We can parametrize our actor references by the path of the actor that it refers to.
-  
+
+Unfortunately creating references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach though. Firstly we lose some typesafty since we can now construct actor references to actors that we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference then requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
+
+The feature to compose actor references was removed because of these reasons. Actor references may now only be obtained from the `create` function and `self` for the current actor.
+
+Typefamilies created for this feature are still useful though. They allow type level computation on specific groups of actors deep inside of an actor system.
+
 #### Implementation specific references
 
-Different implementations of `ActorContext` might want to use different datatypes to refer to actors. In our simple implementation we are using `Word` but we can't assume that every implementation wants to use it.
+Different implementations of `ActorContext` might want to use different datatypes to refer to actors. Since we don't provide a way for the user to create references themselfs we don't have to expose the implementation of these references. 
 
 The most obvious way to achieve this is to associate a given `ActorContext` implementation with a specific reference type. This can be done using an additional type variable on the class, a type family or a data family. Here the data family seems the best choice since it's injective. The injectivity allows us to not only know the reference type from from an `ActorContext` implementation but also the other way round.
 
@@ -309,6 +315,12 @@ Additionally we have to add some constraints to `CtxRef` since we need to be abl
 
 ```haskell
 class (RichData (CtxRef m)), ...) => ActorContext ... where
+```
+
+In our simple implementation I'm using an single `Word` as a unique identifier but we can't assume that every implementation wants to use it.
+
+```haskell
+    data CtxRef MockActorContext = MockCtxRef Word
 ```
 
 Now we have another problem though. Messages should be able to include actor references. If the type of these references now depends on the `ActorContext` implementation we need a way for messages to know this reference type. We can achieve this by adding the actor context as a parameter to the `Message` type family.
@@ -337,7 +349,9 @@ newtype ActorRef a = ActorRef ByteString
 
 This might go a little against our ideal that we want to keep the code as typesafe as possible but it's not as bad as you might think. Firstly other datatypes that might have taken the place of `ByteString` wouldn't be any safer. We can still keep the user from being able to create references by themselves by not exporting the `ActorRef` constructor. We could expose it to `ActorContext` implementers through an internal package.
 
-#### Answering messages
+#### Sending references 
+
+A core feature that is nesseccary for an actor system to effectivly communicate is the abillity to send actor references inside messages.
 
 We need a way to respond to messages. This can be done by including a reference to the actor to respond to in the message and capturing it's `Actor` implementation.
 
