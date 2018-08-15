@@ -1,34 +1,49 @@
 let
-  mkDrv = { book ? false }:
+  thesis = book: 
 
     with import <nixpkgs> {};
 
     (import ./thesis.nix) {
-      mkDerivation = stdenv.mkDerivation;
+      inherit book pandoc;
+      inherit (stdenv) mkDerivation;
+      inherit (haskellPackages) pandoc-citeproc;
 
       texlive = texlive.combine {
-        inherit (texlive) scheme-basic collection-fontsrecommended pagecolor koma-script csquotes mdframed needspace sourcesanspro ly1 mweights sourcecodepro titling lm listings float xcolor setspace etoolbox caption l3packages l3kernel xkeyval;
+        inherit (texlive)
+          scheme-basic
+          collection-fontsrecommended
+          pagecolor
+          koma-script
+          csquotes
+          mdframed
+          needspace
+          sourcesanspro
+          ly1
+          mweights
+          sourcecodepro
+          titling
+          lm
+          listings
+          float
+          xcolor
+          setspace
+          etoolbox
+          caption
+          l3packages
+          l3kernel
+          xkeyval;
       };
 
-      pandoc = pandoc;
-      pandoc-citeproc = haskellPackages.pandoc-citeproc;
-
-      eisvogel = pkgs.fetchFromGitHub {
-        owner  = "Wandmalfarbe";
-        repo   = "pandoc-latex-template";
-        rev    = "40b00f300237780f2f5486ca88a18d987ad6bcd2";
-        sha256 = "0g8ljzz4qacvjp38c3d5hraxgm93bxxsb8qkjj61b18ia4jnysxp";
+      eisvogel = pkgs.fetchurl {
+        url    = "https://raw.githubusercontent.com/Wandmalfarbe/pandoc-latex-template/540173c741da6cc466fb698bc49d78d4f196c1a9/eisvogel.tex";
+        sha256 = "c81d55720e62d40963d33ea41f10def78059fb5f9d7359a33a2cf3db2411a6dd";
       };
 
-      csl = pkgs.fetchFromGitHub {
-        owner  = "citation-style-language";
-        repo   = "styles";
-        rev    = "6b05f55e28e4689680bfc046247579756680c78b";
-        sha256 = "0rnmsv01iz1j3rxc0z731a6kpqxnvp1dfyrd69lwgr4rzfm8acwx";
+      csl = pkgs.fetchurl {
+        url    = "https://raw.githubusercontent.com/citation-style-language/styles/73a405779d590a45424650c712b43e6417b412c0/journal-of-computer-information-systems.csl";
+        sha256 = "803069db5fedba92f478ba8b91a3235cb0b892e1d8edc57b611b832d3f763b95";
       };
-    
-      book = book;
     };
 in
-  mkDrv {} // { book = mkDrv { book = true; }; }
+  thesis false // { book = thesis true; }
 

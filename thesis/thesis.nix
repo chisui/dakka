@@ -15,7 +15,7 @@ mkDerivation {
 
   buildPhase = ''
     ${if book
-      then "sed -e 's/scrartcl/scrbook/g' ${eisvogel}/eisvogel.tex > template.tex"
+      then "sed -e 's/scrartcl/scrbook/g' ${eisvogel} > template.tex"
       else ""
     }
 
@@ -25,8 +25,8 @@ mkDerivation {
       --toc \
       --filter pandoc-citeproc \
       --bibliography ./thesis/bibliography.bib \
-      --csl ${csl}/journal-of-computer-information-systems.csl \
-      --template ${if book then "./template.tex" else "${eisvogel}/eisvogel.tex" } \
+      --csl ${csl} \
+      --template ${if book then "./template.tex" else "${eisvogel}" } \
       --number-sections \
       --top-level-division=${if book then "chapter" else "section"} \
       -o result.pdf
