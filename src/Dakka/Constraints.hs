@@ -122,9 +122,10 @@ class EqShadow2 (f :: k0 -> k1 -> *) where
 
 class GEq (f :: k -> *) where
     geq :: (Typeable a, Typeable b) => f a -> f b -> Bool
+    default geq :: (GOrd f, Typeable a, Typeable b) => f a -> f b -> Bool
+    geq a b = gcompare a b == EQ
 
 instance GEq Proxy where
-    geq a b = gcompare a b == EQ
 
 class GEq f => GOrd (f :: k -> *) where
     gcompare :: (Typeable a, Typeable b) => f a -> f b -> Ordering

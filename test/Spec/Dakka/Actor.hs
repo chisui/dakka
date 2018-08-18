@@ -16,7 +16,7 @@
 module Spec.Dakka.Actor where
 
 import "base" GHC.Generics ( Generic )
-import "base" Data.Typeable ( Typeable )
+import "base" Data.Typeable ( Typeable, typeRep, TypeRep )
 import "base" Numeric.Natural ( Natural )
 import "base" Control.Monad ( void, ap )
 import "base" Data.Proxy ( Proxy(..) )
@@ -156,13 +156,16 @@ tests = testGroup "Dakka.Actor"
             ] 
         , testGroup "behavior"
             [ testCase "run Created $ RootActor '[TrivialActor, PlainMessageActor]" $ do
-                let [msg0, msg1] = snd $ execMockRoot' $ onSignal @SomeRootActor Created
-                msg0 @=? Create (Proxy @TrivialActor)
-                msg1 @=? Create (Proxy @PlainMessageActor)
+                let [msg0, msg1] = snd $ execMock' $ onSignal @SomeRootActor Created
+                createdType msg0 @=? typeRep (Proxy @TrivialActor)
+                createdType msg1 @=? typeRep (Proxy @PlainMessageActor)
             , testCase "run Created $ RootActor '[]" $
-                snd (execMockRoot' (onSignal @(RootActor '[]) Created)) @=? []
+                snd (execMock' (onSignal @(RootActor '[]) Created)) @=? []
             ]
         ]
     ]
 
+createdType :: SystemMessage -> TypeRep
+createdType (Creates r) = typeRep r
+createdType m = error $ "expected Creates SystemMessage but got" ++ show m
 

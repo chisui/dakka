@@ -9,6 +9,7 @@
 module Spec.Dakka.AnswerableMessage ( tests ) where
 
 import "base" Data.Typeable ( cast )
+import "base" Control.Applicative ( liftA2 )
 import "base" GHC.Generics ( Generic )
 
 import "binary" Data.Binary ( Binary )
@@ -47,31 +48,24 @@ tests :: TestTree
 tests = testGroup "Dakka.AnswerableMessage"
     [ testCase "ask and answer chain" $ do
 
-        let askingRef = ActorRef @SimpleAskingActor mempty
+        let [_, askAction] = snd $ execMock' @SimpleAskingActor (onSignal Created)
 
-        let [_, askAction] = snd $ execMock' askingRef (onSignal Created)
+        let (Just (_, askMsg)) = unwrapAskAction askAction
 
-        let (Just (answeringRef, askMsg)) = unwrapAskAction askAction
+        let [answerAction] = snd $ execMock' @SimpleAnsweringActor (onMessage askMsg)
 
-        let [answerAction] = snd $ execMock' answeringRef (onMessage askMsg)
+        let (Just (_, answerMsg)) = unwrapAnswerAction answerAction
 
-        let (Just (askingRef', answerMsg)) = unwrapAnswerAction answerAction
-
-        askingRef @=? askingRef'
         answerMsg @=? "hello"
     ]
 
+unwrapSend :: forall a. Actor a => SystemMessage -> Maybe (ActorRef a, Message a)
+unwrapSend (Send r m) = liftA2 (,) (cast r) (cast m)
+unwrapSend _ = Nothing
+
 unwrapAskAction :: SystemMessage -> Maybe (ActorRef SimpleAnsweringActor, AnswerableMessage String)
-unwrapAskAction (Send r m) = do
-    r' <- cast r 
-    m' <- cast m
-    pure (r', m')
-unwrapAskAction _ = Nothing
+unwrapAskAction = unwrapSend
 
 unwrapAnswerAction :: SystemMessage -> Maybe (ActorRef SimpleAskingActor, String)
-unwrapAnswerAction (Send r m) = do
-    r' <- cast r 
-    m' <- cast m
-    pure (r', m')
-unwrapAnswerAction _ = Nothing
+unwrapAnswerAction = unwrapSend
 

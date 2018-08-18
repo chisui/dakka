@@ -14,7 +14,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -52,6 +51,7 @@ import Dakka.Constraints
     , ImplementsAll, ImplementedByAll
     , RichData
     , (=~=)
+    , GEq(..), GOrd(..)
     )
 
 import Dakka.HasStartState ( HasStartState(..) )
@@ -64,15 +64,21 @@ import Dakka.HasStartState ( HasStartState(..) )
 newtype ActorRef a = ActorRef { actorId :: ByteString }
   deriving (Eq, Generic, Functor, Binary)
 
-eqRef :: (Typeable a, Typeable b) => ActorRef a -> ActorRef b -> Bool
-eqRef refA@(ActorRef idA) refB@(ActorRef idB) = idA == idB && typeRep refA == typeRep refB
-
 instance Typeable a => Show (ActorRef a) where
     showsPrec d ref@(ActorRef aId) = showParen (d > 10)
                                    $ showString "ActorRef <<"
                                    . shows (typeRep ref)
                                    . showString ">>@"
                                    . shows aId
+
+instance GEq ActorRef where
+instance GOrd ActorRef where
+    gcompare refA@(ActorRef idA) refB@(ActorRef idB) = typeRep refA `compare` typeRep refB <> idA `compare` idB
+
+type HasAllCapabillities m a = (m `ImplementsAll` Capabillities a, HasAllCapabillities' m (Creates a))
+type family HasAllCapabillities' m cs :: Constraint where
+    HasAllCapabillities' m '[] = ()
+    HasAllCapabillities' m (a ': as) = (HasAllCapabillities m a, HasAllCapabillities' m as)
 
 -- -------------- --
 --  ActorContext  --
@@ -127,7 +133,7 @@ create = create' Proxy
 type ActorAction (m :: * -> *) (a :: *)
   = ( Actor a
     , ActorContext a m
-    , m `ImplementsAll` Capabillities a
+    , HasAllCapabillities m a
     ) => m ()
 
 type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a) -> ActorAction m a
@@ -140,7 +146,7 @@ deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
 
 instance ActorContext a m => Eq (Signal m a) where
     Created       == Created       = True
-    (Obit refa a) == (Obit refb b) = refa `eqRef` refb && a =~= b
+    (Obit refa a) == (Obit refb b) = refa `geq` refb && a =~= b
     _             == _             = False
 
 instance ActorContext a m => Show (Signal m a) where

@@ -1,7 +1,7 @@
 {-# LANGUAGE Trustworthy #-} -- Generalized newtype deriving for MockActorContext
-{-# LANGUAGE TupleSections #-} -- Generalized newtype deriving for MockActorContext
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -18,36 +18,46 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.MockActorContext where
 
-import "base" Data.Proxy ( Proxy )
-import "base" Data.Typeable ( typeRep )
+import           "base"         Data.Maybe    ( fromMaybe )
+import           "base"         Data.Either   ( lefts )
+import           "base"         Data.Typeable ( typeRep )
 
-import "transformers" Control.Monad.Trans.State.Lazy ( StateT, runStateT )
-import "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
+import           "containers"   Data.Tree ( Tree(..) )
 
-import "mtl" Control.Monad.Reader ( ReaderT, ask, MonadReader, runReaderT )
-import "mtl" Control.Monad.State.Class ( MonadState )
-import "mtl" Control.Monad.Writer.Class ( MonadWriter( tell ) )
+import           "bytestring"   Data.ByteString.Lazy.Char8 ( pack )
 
-import Dakka.Actor
+import           "transformers" Control.Monad.Trans.State.Lazy  ( StateT, State, runStateT, runState, evalState )
+import           "transformers" Control.Monad.Trans.Writer.Lazy ( Writer, runWriter )
+
+import           "mtl"          Control.Monad.Reader       ( ReaderT, ask, MonadReader, runReaderT )
+import           "mtl"          Control.Monad.State.Class  ( MonadState( get, put ), gets )
+import           "mtl"          Control.Monad.Writer.Class ( MonadWriter( tell ) )
+
+import                          Dakka.Actor       ( ActorContext( self, create' , (!) ), Actor( Message, Capabillities, startState, behavior ), Signal( Created ) )
+import                          Dakka.Actor.Base  ( ActorRef( ActorRef ) )
+import                          Dakka.Constraints ( (=~=), ImplementsAll )
+import                          Dakka.HMap        ( HMap ) 
+import qualified                Dakka.HMap        as HMap
 
 
 -------------------
 -- SystemMessage --
 -------------------
 
--- | Encapsulates an interaction of a behavior with the context
-data SystemMessage
-    = forall a. Actor a => Create (Proxy a)
-    | forall a. Actor a => Send
-        { to  :: ActorRef a 
-        , msg :: Message a
-        }
+data Creates where
+    Creates :: Actor a => ActorRef a -> Creates
+data Send where
+    Send :: Actor a => ActorRef a -> Message a -> Send
 
-instance Show SystemMessage where
-    showsPrec d (Create p)      = showParen (d > 10) 
-                                $ showString "Create <<"
+-- | Encapsulates an interaction of a behavior with the context
+type SystemMessage = Either Creates Send
+
+instance Show Creates where
+    showsPrec d (Creates p)     = showParen (d > 10) 
+                                $ showString "Creates <<"
                                 . shows (typeRep p)
                                 . showString ">>"
+instance Show Send where                            
     showsPrec d (Send to' msg') = showParen (d > 10)
                                 $ showString "Send {to = "
                                 . showsPrec 11 to'
@@ -55,10 +65,43 @@ instance Show SystemMessage where
                                 . shows msg'
                                 . showString "}"
 
-instance Eq SystemMessage where
-    (Create a)     == (Create b)     = a =~= b
+instance Eq Creates where
+    (Creates a)    == (Creates b)    = a =~= b
+instance Eq Send where
     (Send refa am) == (Send refb bm) = refa =~= refb && am =~= bm 
-    _              == _              = False
+
+--------------
+-- CtxState --
+--------------
+
+data CtxState = CtxState
+    { nextId :: Word
+    , states :: HMap ActorRef
+    }
+  deriving 
+    ( Show
+    , Eq
+    )
+
+ctxEmpty :: CtxState
+ctxEmpty = CtxState 0 HMap.hEmpty
+
+ctxRegisterActor :: forall a m. (MonadState CtxState m, Actor a) => a -> m (ActorRef a)
+ctxRegisterActor a = do
+    (CtxState i m) <- get
+    let ref = ActorRef . pack . show $ i
+    let m' = HMap.hInsert ref a m
+    put $ CtxState (succ i) m'
+    return ref
+
+ctxCreateActor :: forall a m. (MonadState CtxState m, Actor a) => m (ActorRef a)
+ctxCreateActor = ctxRegisterActor startState
+
+ctxGetState :: (MonadState CtxState m, Actor a) => ActorRef a -> m (Maybe a)
+ctxGetState ref = gets (HMap.hLookup ref . states) 
+
+ctxLookup :: Actor a => ActorRef a -> CtxState -> a
+ctxLookup ref (CtxState _ m) = startState `fromMaybe` HMap.hLookup ref m
 
 ----------------------
 -- MockActorContext --
@@ -66,66 +109,79 @@ instance Eq SystemMessage where
 
 -- | An ActorContext that simply collects all state transitions, sent messages and creation intents.
 newtype MockActorContext a v = MockActorContext
-    (ReaderT (ActorRef a) (StateT a (Writer [SystemMessage])) v)
-  deriving (Functor, Applicative, Monad, MonadWriter [SystemMessage], MonadReader (ActorRef a))
+    ( ReaderT (ActorRef a) 
+        ( StateT CtxState 
+            (Writer [SystemMessage])
+        ) v
+    )
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadWriter [SystemMessage]
+    , MonadReader (ActorRef a)
+    )
 
-deriving instance MonadState a (MockActorContext a) 
-{-
-instance MonadState a (MockActorContext a) where
-    state = MockActorContext . state . (\ f -> (a, id) -> (,id) <$> f a)
-  dd-}
+instance Actor a => MonadState a (MockActorContext a) where
+    get = do
+        ref <- ask
+        MockActorContext . gets $ ctxLookup ref
+    put a = do
+        ref <- ask
+        MockActorContext $ do
+            CtxState i m <- get
+            let m' = HMap.hInsert ref a m 
+            put $ CtxState i m'
 
 instance Actor a => ActorContext a (MockActorContext a) where
 
     self = ask
 
-    create' a = do
-        tell [Create a]
-        return $ ActorRef mempty
+    create' _ = do 
+      ref <- MockActorContext ctxCreateActor
+      tell [Left $ Creates ref]
+      pure ref
 
-    p ! m = tell [Send p m]
+    p ! m = tell [Right $ Send p m]
 
 
 type MockResult a = (a, [SystemMessage])
 
-runMock :: forall a v. ActorRef a -> MockActorContext a v -> a -> (v, MockResult a)
-runMock ar (MockActorContext ctx) a = swapResult $ runWriter $ runStateT (runReaderT ctx ar) a
-  where swapResult ((res, a'), msgs) = (res, (a', msgs))
+runMockInternal :: forall a v. Actor a => MockActorContext a v -> ActorRef a -> CtxState -> ((v, CtxState), [SystemMessage])
+runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT ctx ref)
 
-runMock' :: forall a v. Actor a => ActorRef a -> MockActorContext a v -> (v, MockResult a) 
-runMock' ar ctx = runMock ar ctx startState
-
-runMockRoot :: forall a v. MockActorContext a v -> a -> (v, MockResult a)
-runMockRoot = runMock $ ActorRef mempty 
-
-runMockRoot' :: forall a v. Actor a => MockActorContext a v -> (v, MockResult a)
-runMockRoot' ctx = runMockRoot ctx startState
-
-
-execMock :: forall a v. ActorRef a -> MockActorContext a v -> a -> MockResult a
-execMock ar ctx a = snd $ runMock ar ctx a
-
-execMock' :: forall a v. Actor a => ActorRef a -> MockActorContext a v -> MockResult a 
-execMock' ar ctx = snd $ runMock' ar ctx
-
-execMockRoot :: forall a v. MockActorContext a v -> a -> MockResult a 
-execMockRoot ctx a = snd $ runMockRoot ctx a
-
-execMockRoot' :: forall a v. Actor a => MockActorContext a v -> MockResult a
-execMockRoot' ctx = snd $ runMockRoot' ctx 
+runMockAllInternal :: SystemMessage -> CtxState -> Tree (CtxState, SystemMessage)
+runMockAllInternal = evalState . go 
+  where
+    go :: SystemMessage -> State CtxState (Tree (CtxState, SystemMessage))
+    go msg@(Left (Creates ref)) = do
+        a <- gets $ ctxLookup ref
+        ((_, ctx), msgs) <- gets $ runMockInternal (behavior (Left Created)) ref  
+        put ctx
+        Node (ctx, msg) <$> traverse go msgs
+    go msg@(Right (Send ref payload)) = undefined
 
 
-evalMock :: forall a v. ActorRef a -> MockActorContext a v -> a -> v
-evalMock ar ctx a = fst $ runMock ar ctx a
+runMock :: forall a v. Actor a => MockActorContext a v -> a -> (v, MockResult a)
+runMock ctx a = swapResult $ runMockInternal ctx ref initalCtx 
+  where
+    (ref, initalCtx) = ctxRegisterActor a `runState` ctxEmpty
+    swapResult ((res, ctx'), msgs) = (res, (ctxLookup ref ctx', msgs))
 
-evalMock' :: forall a v. Actor a => ActorRef a -> MockActorContext a v -> v
-evalMock' ar ctx = fst $ runMock' ar ctx
-
-evalMockRoot :: forall a v. MockActorContext a v -> a -> v 
-evalMockRoot ctx a = fst $ runMockRoot ctx a
-
-evalMockRoot' :: forall a v. Actor a => MockActorContext a v -> v 
-evalMockRoot' ctx = fst $ runMockRoot' ctx 
+runMock' :: forall a v. Actor a => MockActorContext a v -> (v, MockResult a) 
+runMock' ctx = runMock ctx startState
 
 
+execMock :: forall a v. Actor a => MockActorContext a v -> a -> MockResult a
+execMock ctx a = snd $ runMock ctx a
+
+execMock' :: forall a v. Actor a => MockActorContext a v -> MockResult a 
+execMock' ctx = snd $ runMock' ctx
+
+
+evalMock :: forall a v. Actor a => MockActorContext a v -> a -> v
+evalMock ctx a = fst $ runMock ctx a
+
+evalMock' :: forall a v. Actor a => MockActorContext a v -> v
+evalMock' ctx = fst $ runMock' ctx
 

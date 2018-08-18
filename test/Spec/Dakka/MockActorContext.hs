@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- Arbitrary 
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -8,8 +9,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 module Spec.Dakka.MockActorContext ( tests ) where
-
-import "base" Data.Proxy ( Proxy(..) )
 
 import "mtl" Control.Monad.State.Class ( modify )
 
@@ -29,7 +28,7 @@ import "dakka" Dakka.Actor
 type SomePath = ActorRef PlainMessageActor
 
 somePath :: SomePath
-somePath = ActorRef mempty
+somePath = ActorRef "0" 
 
 
 instance Arbitrary (ActorRef a) where
@@ -39,18 +38,17 @@ tests :: TestTree
 tests = testGroup "Dakka.MockActorContext"
     [ testGroup "SystemMessage"
         [ testGroup "Show"
-            [ testCase "Create <<TrivialActor>>" $
-                show (Create (Proxy @TrivialActor)) @=? "Create <<TrivialActor>>"
-            , testCase "Create <<GenericActor Int>>" $
-                show (Create (Proxy @(GenericActor Int))) @=? "Create <<GenericActor Int>>"
+            [ testCase "Creates <<TrivialActor>>@\"id\"" $
+                show (Creates (ActorRef @TrivialActor "id")) @=? "Creates <<TrivialActor>>@\"id\""
+            , testCase "Creates <<GenericActor Int>>" $
+                show (Creates (ActorRef @(GenericActor Int) "id")) @=? "Creates <<GenericActor Int>>@\"id\""
             , testCase "Send {to = (ctorRef <<TrivialActor>>@\"\"), msg = ()}" $
-                show Send{ to  = ActorRef @TrivialActor mempty 
-                         , msg = ()
-                         } @=? "Send {to = (ActorRef <<TrivialActor>>@\"\"), msg = ()}"
+                show (Send (ActorRef @TrivialActor mempty) ())
+                    @=? "Send {to = (ActorRef <<TrivialActor>>@\"\"), msg = ()}"
             ]
         , testGroup "Eq"
-            [ testCase "Create = Create" $
-                Create (Proxy @TrivialActor) @=? Create (Proxy @TrivialActor)
+            [ testCase "Creates = Creates" $
+                Creates (ActorRef @TrivialActor "") @=? Creates (ActorRef @TrivialActor "")
             , testProperty "Send a b = Send a b" $
                 \ (a :: SomePath) (a' :: SomePath) b b' -> (Send a b == Send a' b') === (a == a' && b == b')
             ]
@@ -58,24 +56,24 @@ tests = testGroup "Dakka.MockActorContext"
     , testGroup "MockActorContext"
         [ testGroup "ActorContext"
             [ testCase "self" $
-                evalMock' somePath self @=? somePath
+                evalMock' self @=? somePath
             , testGroup "create"
                 [ testCase "returns new path" $
-                    evalMockRoot' @CreatesActor (create @TrivialActor)
-                        @=? ActorRef mempty 
+                    evalMock' @CreatesActor (create @TrivialActor)
+                        @=? ActorRef "0" 
                 , testCase "fires Create message" $
-                    snd (execMockRoot' @CreatesActor (create @TrivialActor)) @=? [Create (Proxy @TrivialActor)]
+                    snd (execMock' @CreatesActor (create @TrivialActor)) @=? [Creates (ActorRef @TrivialActor "1")]
                 ]
             , testCase "send" $
-                snd (execMock' somePath (self >>= (! "hello"))) @=? [Send somePath "hello"]
+                snd (execMock' @PlainMessageActor (self >>= (! "hello"))) @=? [Send somePath "hello"]
             ]
         , testGroup "MonadState"
             [ testCase "state" $
-                fst (execMockRoot' (modify (\ (CustomStateActor i) -> CustomStateActor (i+1))))
+                fst (execMock' (modify (\ (CustomStateActor i) -> CustomStateActor (i+1))))
                     @=? CustomStateActor 1
             ]
         , testCase "runMock somePath (pure ()) PlainMessageActor = ((), (PlainMessageActor, []))" $
-            runMock somePath (pure ()) PlainMessageActor @=? ((), (PlainMessageActor, []))
+            runMock (pure ()) PlainMessageActor @=? ((), (PlainMessageActor, []))
         ]
     ]
 
