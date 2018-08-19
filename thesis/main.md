@@ -355,54 +355,64 @@ A core feature that is nesseccary for an actor system to effectivly communicate 
 
 The most trivial case would be that the message to actor is an actor reference itself.
 
-We need a way to respond to messages. This can be done by including a reference to the actor to respond to in the message and capturing it's `Actor` implementation.
-
 ```haskell
-data AnswerableMessage = forall a. Actor a => AnswerableMessage (ActorRef a)
+instance Actor Sender where
+    type Message Seder = ActorRef Reciever
+    ...
 ```
 
-With this implementation we can't control what actors can be referred to by the references we send. For example we would like to constrain what messages the provided actor can handle. We can achieve this by further constraining the actor type that is captured by the constructor:
-
-```haskell
-data AnswerableMessage m
-  = forall a.
-    ( Actor a
-    , Message a ~ m
-    ) =>
-      AnswerableMessage (ActorRef a)
-```
-
-Now only actors that except exactly messages of type `m` can be referred to. This may be a little to restrictive though. Maybe we want to be able to allow some other class of actor. With `ConstraintKinds` we can also externalize these constraints.
+This way limits the actor type of the reciever to be a single concrete type though. In particular we have to know the type of the actor (Reciever in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Reciever.
 
 
 ```haskell
-data AnswerableMessage c
-  = forall a.
-    ( Actor a
-    , c a
-    ) =>
-      AnswerableMessage (ActorRef a)
+instance (Actor a, c a) => Actor (Sender a) where
+    type Message (Sender a) = a
+    ...
 ```
 
-This way we can express any constraint on actors and messages we want. The exact message constraint from above can expressed like this:
+`c` here can take any constraint that the Reciever actor has to fulfill as well. This is more generic but we `a` still represents a concrete type at runtime. The way this is normally done in Haskell is by extracting the commonalities of all Reciever types into a typeclass and ensure that all referenced actors implement that typeclass.
 
 ```haskell
-type C a = M ~ Message a
-AnswerableMessage C 
+class Actor a => Reciever a
+instance Reciever a => Actor (Sender a) where
+    type Message (Sender a) = a
+    ...
 ```
 
-We now run into the problem again that type aliases can't be partially applied. So have to use the trick of creating a class that is only implemented once. 
+Although this is just a variateion on the previous way since we only consolidated `c` into the `Reciever` class. Unfortunatly we can't use `forall` in constraint contexts (yet; see `QuantifiedConstraints`). To get around this we can create a new message type that encapsulates the constraint like this:
 
 ```haskell
-class (Actor a, c (Message a)) => MessageConstraint c a
-instance (Actor a, c (Message a)) => MessageConstraint c a
+data AnswerableMessage c = forall a. (Actor a, c a) => AnswerableMessage (ActorRef a)
 ```
 
-With this we can rephrase the Above `AnswerableMessage` like this:
+With this we can define the Sender like this:
 
 ```haskell
-AnswerableMessage (MessageConstraint (M ~))
+class Actor a => Reciever a
+instance Actor Sender where
+    type Message Sender = AnswerableMessage Reciever 
+    ...
 ```
+
+`Reciever` should not perform longrunning tasks though since that would provide a way to circumvent the actor model somewhat since the task would be performed in the context of the `Sender`. Ideally the class should only provide a way to construct a message the `Reciever` understands from a more generic type. We can express this with a typeclass like this:
+
+```haskell
+class Actor a => Understands m a where
+    convert :: m -> Message a
+```
+
+A `Sender` may use this class like this:
+
+```haskell
+instance Actor Sender
+    type Message Sender = AnswerableMessage (Understands SomeType)
+    onMessage (AnswerableMessage ref) = do
+        ref ! convert someType
+```
+
+Solving the problem of sending generic actor references has a huge problem though. Using existential quantification prevents AnswerableMessage from beeing serialized. Serializabillity is a core requrirement for messages though.
+
+I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitraty types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase though. Sending `ActorRef` values directly is the only possible way for now.
 
 ### Flexibility and Effects
 
@@ -499,6 +509,8 @@ create = tell $ Create (Proxy @b)
 `become` does not need a corresponding function in this case since `State` already defines everything we need.
 
 # Testing
+
+One of the goals of the actor framework is testabillity of actors written in the framework. The main way that testabillity is achieved is by implementing a special `ActorContext` 
 
 # Results
 
