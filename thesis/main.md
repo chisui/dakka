@@ -319,10 +319,6 @@ class (RichData (CtxRef m)), ...) => ActorContext ... where
 
 In our simple implementation I'm using an single `Word` as a unique identifier but we can't assume that every implementation wants to use it.
 
-```haskell
-    data CtxRef MockActorContext = MockCtxRef Word
-```
-
 Now we have another problem though. Messages should be able to include actor references. If the type of these references now depends on the `ActorContext` implementation we need a way for messages to know this reference type. We can achieve this by adding the actor context as a parameter to the `Message` type family.
 
 ```haskell
@@ -510,7 +506,55 @@ create = tell $ Create (Proxy @b)
 
 # Testing
 
-One of the goals of the actor framework is testabillity of actors written in the framework. The main way that testabillity is achieved is by implementing a special `ActorContext` 
+One of the goals of the actor framework is testabillity of actors written in the framework. The main way that testabillity is achieved is by implementing a special `ActorContext` that provides a way to execute an actors behavior in an controlled environment. The name of this `ActorContext` is `MockActorContext`. `MockActorContext` has to provide implementations for `create`, `send` and `MonadState`. Additionally we need a way to execute a `MockActorContext`. One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
+
+```haskell
+newtype MockActorContext a v = MockActorContext
+    ( ReaderT (ActorRef a) 
+        ( StateT CtxState 
+            (Writer [SystemMessage])
+        ) v
+    )
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadWriter [SystemMessage]
+    , MonadReader (ActorRef a)
+    )
+```
+
+Where `CtxState` is used to keep track of actor instances that currently are in known to the context.
+
+```haskell
+data CtxState = CtxState
+    { nextId :: Word
+    , states :: HMap ActorRef
+    }
+  deriving 
+    ( Show
+    , Eq
+    )
+```
+
+`HMap` 
+
+`MonadState` is a prerequisite for `ActorContext`
+
+
+
+```haskell
+instance Actor a => MonadState a (MockActorContext a) where
+    get = do
+        ref <- ask
+        MockActorContext . gets $ ctxLookup ref
+    put a = do
+        ref <- ask
+        MockActorContext $ do
+            CtxState i m <- get
+            let m' = HMap.hInsert ref a m 
+            put $ CtxState i m'
+```
 
 # Results
 
