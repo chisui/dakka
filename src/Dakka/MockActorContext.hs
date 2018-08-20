@@ -19,7 +19,6 @@
 module Dakka.MockActorContext where
 
 import           "base"         Data.Maybe    ( fromMaybe )
-import           "base"         Data.Either   ( lefts )
 import           "base"         Data.Typeable ( typeRep )
 
 import           "containers"   Data.Tree ( Tree(..) )
@@ -33,9 +32,9 @@ import           "mtl"          Control.Monad.Reader       ( ReaderT, ask, Monad
 import           "mtl"          Control.Monad.State.Class  ( MonadState( get, put ), gets )
 import           "mtl"          Control.Monad.Writer.Class ( MonadWriter( tell ) )
 
-import                          Dakka.Actor       ( ActorContext( self, create' , (!) ), Actor( Message, Capabillities, startState, behavior ), Signal( Created ) )
+import                          Dakka.Actor       ( ActorContext( self, create' , (!) ), Actor( Message, startState ) )
 import                          Dakka.Actor.Base  ( ActorRef( ActorRef ) )
-import                          Dakka.Constraints ( (=~=), ImplementsAll )
+import                          Dakka.Constraints ( (=~=) )
 import                          Dakka.HMap        ( HMap ) 
 import qualified                Dakka.HMap        as HMap
 
@@ -154,12 +153,15 @@ runMockAllInternal :: SystemMessage -> CtxState -> Tree (CtxState, SystemMessage
 runMockAllInternal = evalState . go 
   where
     go :: SystemMessage -> State CtxState (Tree (CtxState, SystemMessage))
-    go msg@(Left (Creates ref)) = do
+    go = undefined
+    {-
+    go (Left (Creates ref)) = do 
         a <- gets $ ctxLookup ref
         ((_, ctx), msgs) <- gets $ runMockInternal (behavior (Left Created)) ref  
         put ctx
         Node (ctx, msg) <$> traverse go msgs
-    go msg@(Right (Send ref payload)) = undefined
+    go (Right (Send ref payload)) = undefined
+    -}
 
 
 runMock :: forall a v. Actor a => MockActorContext a v -> a -> (v, MockResult a)
