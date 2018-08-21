@@ -24,6 +24,7 @@
 module Dakka.Actor.Base
     ( ActorRef(..)
     , ActorContext(..)
+    , HasAllCapabillities
     , create
     , Actor(..)
     , ActorAction
