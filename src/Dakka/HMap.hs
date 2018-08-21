@@ -1,8 +1,8 @@
+{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE PackageImports            #-}
+{-# LANGUAGE Trustworthy               #-}
 module Dakka.HMap
     ( HMap
     , hEmpty
@@ -10,13 +10,13 @@ module Dakka.HMap
     , hLookup
     ) where
 
-import "base" Data.Typeable ( Typeable )
-import "base" Unsafe.Coerce ( unsafeCoerce )
+import           "base" Data.Typeable  (Typeable)
+import           "base" Unsafe.Coerce  (unsafeCoerce)
 
-import "containers" Data.Map ( Map, insert, empty )
+import           "containers" Data.Map (Map, empty, insert)
 import qualified "containers" Data.Map as Map
 
-import Dakka.Constraints ( GEq( geq ), GOrd( gcompare ), (=~=) ) 
+import           Dakka.Constraints     (GEq (geq), GOrd (gcompare), (=~=))
 
 
 data Key k where
@@ -46,12 +46,12 @@ newtype HMap k = HMap (Map (Key k) Elem)
 
 instance Show (HMap k) where
     showsPrec d (HMap m) = showsPrec d m
-    
-hEmpty :: GOrd k => HMap k 
+
+hEmpty :: GOrd k => HMap k
 hEmpty = HMap empty
 
 hInsert :: HMapConstrains k v => k v -> v -> HMap k -> HMap k
-hInsert k v (HMap m) = HMap $ insert (Key k) (Elem v) m 
+hInsert k v (HMap m) = HMap $ insert (Key k) (Elem v) m
 
 hLookup :: HMapConstrains k v => k v -> HMap k -> Maybe v
 hLookup k (HMap m) = (\ (Elem e) -> unsafeCoerce e) <$> Map.lookup (Key k) m

@@ -1,12 +1,11 @@
-
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PackageImports        #-}
+{-# LANGUAGE Safe                  #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Dakka.Convert where
 
-import "base" Control.Applicative ( Const(..) )
+import           "base" Control.Applicative (Const (..))
 
 
 class Convertible a b where

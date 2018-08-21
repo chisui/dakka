@@ -1,33 +1,32 @@
-{-# LANGUAGE Safe #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds               #-}
+{-# LANGUAGE DeriveAnyClass          #-}
+{-# LANGUAGE DeriveGeneric           #-}
+{-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE KindSignatures          #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
+{-# LANGUAGE PackageImports          #-}
+{-# LANGUAGE RankNTypes              #-}
+{-# LANGUAGE Safe                    #-}
+{-# LANGUAGE ScopedTypeVariables     #-}
+{-# LANGUAGE TypeApplications        #-}
+{-# LANGUAGE TypeFamilyDependencies  #-}
+{-# LANGUAGE TypeOperators           #-}
+{-# LANGUAGE UndecidableInstances    #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 module Dakka.Actor.RootActor where
 
-import "base" GHC.Generics ( Generic )
-import "base" Type.Reflection 
-import "base" Data.Proxy ( Proxy(..) ) 
-import "base" Data.Void ( Void ) 
+import           "base" Data.Proxy      (Proxy (..))
+import           "base" Data.Void       (Void)
+import           "base" GHC.Generics    (Generic)
+import           "base" Type.Reflection
 
-import "binary" Data.Binary ( Binary )
+import           "binary" Data.Binary   (Binary)
 
 
-import Dakka.Actor.Base ( Actor( Creates, Message, behavior )
-                        , Signal(..), ActorAction
-                        , create, noop
-                        )
-import Dakka.Constraints ( (:⊆), ImplementedByAll )
-import Dakka.HasStartState ( HasStartState )
+import           Dakka.Actor.Base       (Actor (Creates, Message, behavior),
+                                         ActorAction, Signal (..), create, noop)
+import           Dakka.Constraints      ((:⊆), ImplementedByAll)
+import           Dakka.HasStartState    (HasStartState)
 
 
 data RootActor (l :: [*]) = RootActor

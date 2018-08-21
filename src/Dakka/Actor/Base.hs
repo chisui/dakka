@@ -1,26 +1,26 @@
-{-# LANGUAGE Safe #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE DefaultSignatures         #-}
+{-# LANGUAGE DeriveAnyClass            #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE FunctionalDependencies    #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE InstanceSigs              #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE PackageImports            #-}
+{-# LANGUAGE PolyKinds                 #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE Safe                      #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE UndecidableSuperClasses   #-}
 module Dakka.Actor.Base
     ( ActorRef(..)
     , ActorContext(..)
@@ -35,26 +35,23 @@ module Dakka.Actor.Base
     , noop
     ) where
 
-import "base" Data.Kind ( Constraint )
-import "base" Data.Typeable ( Typeable, typeRep )
-import "base" Data.Proxy ( Proxy(..) )
-import "base" GHC.Generics ( Generic )
+import           "base" Data.Kind                  (Constraint)
+import           "base" Data.Proxy                 (Proxy (..))
+import           "base" Data.Typeable              (Typeable, typeRep)
+import           "base" GHC.Generics               (Generic)
 
-import "bytestring" Data.ByteString.Lazy ( ByteString )
+import           "bytestring" Data.ByteString.Lazy (ByteString)
 
-import "mtl" Control.Monad.State.Class ( MonadState )
+import           "mtl" Control.Monad.State.Class   (MonadState)
 
-import "binary" Data.Binary ( Binary )
+import           "binary" Data.Binary              (Binary)
 
-import Dakka.Constraints
-    ( (:∈)
-    , ImplementsAll, ImplementedByAll
-    , RichData
-    , (=~=)
-    , GEq(..), GOrd(..)
-    )
+import           Dakka.Constraints                 ((:∈), GEq (..), GOrd (..),
+                                                    ImplementedByAll,
+                                                    ImplementsAll, RichData,
+                                                    (=~=))
 
-import Dakka.HasStartState ( HasStartState(..) )
+import           Dakka.HasStartState               (HasStartState (..))
 
 
 -- ---------- --
@@ -92,7 +89,7 @@ type family HasAllCapabillities' m cs :: Constraint where
 --     * send messages to other actors
 --
 --     * create new actors.
--- 
+--
 class ( Actor a
       , MonadState a m
       ) => ActorContext a (m :: * -> *) | m -> a
@@ -102,10 +99,10 @@ class ( Actor a
       self :: m (ActorRef a)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
-      create' :: ( Actor a 
+      create' :: ( Actor a
                  , Actor b
-                 , b :∈ Creates a 
-                 ) => Proxy b -> m (ActorRef b) 
+                 , b :∈ Creates a
+                 ) => Proxy b -> m (ActorRef b)
 
       -- | Send a message to another actor
       send :: Actor b => ActorRef b -> Message b -> m ()
@@ -120,7 +117,7 @@ create :: forall b a m.
   ( Actor b
   , Actor a
   , ActorContext a m
-  , b :∈ Creates a 
+  , b :∈ Creates a
   ) => m (ActorRef b)
 create = create' Proxy
 
@@ -170,7 +167,7 @@ class ( RichData a
       -- | List of all types of actors that this actor may create in its lifetime.
       type Creates a :: [*]
       type Creates a = '[]
-  
+
       -- | Type of Message this Actor may recieve
       type Message a :: *
       type Message a = ()
@@ -193,9 +190,9 @@ class ( RichData a
 
       startState :: a
       default startState :: HasStartState a => a
-      startState = start 
+      startState = start
 
--- | A pure 'Actor' is one that has no additional Capabillities besides what a 
+-- | A pure 'Actor' is one that has no additional Capabillities besides what a
 -- 'ActorContext' provides.
 type PureActor a = (Actor a, Capabillities a ~ '[])
 

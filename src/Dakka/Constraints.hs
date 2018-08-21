@@ -1,27 +1,28 @@
-{-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE DefaultSignatures         #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE PackageImports            #-}
+{-# LANGUAGE PolyKinds                 #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE Trustworthy               #-}
+{-# LANGUAGE TypeApplications          #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE UndecidableInstances      #-}
 module Dakka.Constraints where
 
-import "base" Data.Kind -- We need *, that can't be expressed in an import filter
-import "base" Data.Typeable ( Typeable, cast, typeRep )
-import "base" Data.Proxy ( Proxy )
-import "base" Data.Functor.Classes ( Eq1(..), Show1, Eq2(..) )
-import "base" Unsafe.Coerce ( unsafeCoerce ) -- used for 'downCast'
-import "base" Data.Function ( on )
+import           "base" Data.Function        (on)
+import           "base" Data.Functor.Classes (Eq1 (..), Eq2 (..), Show1)
+import           "base" Data.Kind
+import           "base" Data.Proxy           (Proxy)
+import           "base" Data.Typeable        (Typeable, cast, typeRep)
+import           "base" Unsafe.Coerce        (unsafeCoerce)
 
-import "binary" Data.Binary ( Binary )
+import           "binary" Data.Binary        (Binary)
 
 
 type family (e :: k) :∈ (l :: [k]) :: Constraint where
@@ -82,13 +83,13 @@ data ConstrainedDynamic (cs :: [* -> Constraint])
     = forall a. (a `ImplementsAll` cs) => CDyn a
 
 liftConstrained :: (a :⊆ b) => (ConstrainedDynamic a -> c) -> ConstrainedDynamic b -> c
-liftConstrained f = f . downCast 
+liftConstrained f = f . downCast
 
 downCast :: (b :⊆ a) => ConstrainedDynamic a -> ConstrainedDynamic b
 downCast = unsafeCoerce -- removing constrains is nothing more than casting to it
 
 instance ('[Typeable, Eq] :⊆ cs) => Eq (ConstrainedDynamic cs) where
-    (==) = eq `on` downCast 
+    (==) = eq `on` downCast
       where
         eq :: ConstrainedDynamic '[Typeable, Eq] -> ConstrainedDynamic '[Typeable, Eq] -> Bool
         eq (CDyn a) (CDyn b) = a =~= b
@@ -110,14 +111,14 @@ class ShowShadow2 (f :: k0 -> k1 -> *) where
 
 
 class EqShadow (f :: k -> *) where
-    eqShadow :: f a -> f a -> Bool 
-    default eqShadow :: Eq (f a) => f a -> f a -> Bool 
-    eqShadow = (==) 
+    eqShadow :: f a -> f a -> Bool
+    default eqShadow :: Eq (f a) => f a -> f a -> Bool
+    eqShadow = (==)
 
 class EqShadow2 (f :: k0 -> k1 -> *) where
     eqShadow2 ::  f a b -> f a b -> Bool
-    default eqShadow2 :: Eq (f a b) => f a b -> f a b -> Bool 
-    eqShadow2 = (==) 
+    default eqShadow2 :: Eq (f a b) => f a b -> f a b -> Bool
+    eqShadow2 = (==)
 
 
 class GEq (f :: k -> *) where

@@ -1,14 +1,14 @@
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE PackageImports       #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DefaultSignatures #-}
 module Dakka.HasStartState
     ( HasStartState(..)
     ) where
 
-import "base" GHC.Generics ( Generic(Rep), to, U1(..), M1 )
+import           "base" GHC.Generics (Generic (Rep), M1, U1 (..), to)
 
 
 class HasStartState a where
@@ -23,5 +23,5 @@ instance GHasStartState U1 where
     gstart = U1
 
 instance GHasStartState f => GHasStartState (M1 i c f) where
-    gstart = gstart 
+    gstart = gstart
 
