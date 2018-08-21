@@ -25,6 +25,10 @@ executable cloud-test
                      , network-transport
                      , network-transport-tcp
   main-is:             Main.hs
+  other-modules:       Dakka.Distributed
+                     , Dakka.Distributed.Internal
+                     , Dakka.Distributed.TH
+                     , Dakka.Distributed.Static
   default-language:    Haskell2010
   ghc-options: -fprint-potential-instances -Wall -O2
 
@@ -49,6 +53,7 @@ library
                      , transformers
                      , bytestring
                      , contravariant
+                     , constraints
                      , mtl
                      , binary
                      , distributed-process
