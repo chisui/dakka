@@ -36,9 +36,10 @@ library
   hs-source-dirs:      src
   exposed-modules:     Dakka.Actor
                      , Dakka.AnswerableMessage
-                     , Dakka.Path
+                     , Dakka.Actor.Internal
                      , Dakka.MockActorContext
                      , Dakka.RemoteTableState
+                     , Dakka.Types
                      , Dakka.Convert
                      , Dakka.Constraints
                      , Dakka.HMap
@@ -46,8 +47,8 @@ library
                      , Dakka.Path.PathSegment
                      , Dakka.Path.HPathT
                      , Dakka.Actor.Base
+                     , Dakka.Actor.ActorRef
                      , Dakka.Actor.RootActor
-                     , Dakka.HasStartState
   build-depends:       base
                      , containers
                      , transformers

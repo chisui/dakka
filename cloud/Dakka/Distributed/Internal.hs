@@ -47,47 +47,42 @@ import qualified "dakka" Dakka.Actor                                    as A
 import           "dakka" Dakka.Constraints
 
 
-newtype DistributedActorContext a v
+newtype DistributedActorContext r a v
     = DistributedActorContext
         { runDAC :: (StateT a Process v)
         }
   deriving (Functor, Applicative, Monad)
 
-instance MonadState a (DistributedActorContext a) where
+instance MonadState a (DistributedActorContext r a) where
     state = DistributedActorContext . state
 
-liftProcess :: Process v -> DistributedActorContext a v
+liftProcess :: Process v -> DistributedActorContext r a v
 liftProcess = DistributedActorContext . lift
 
-expectMessage :: (A.Actor a, DistributedActorContext a `A.HasAllCapabillities` a) => DistributedActorContext a ()
+expectMessage :: ( r `A.IsRootOf` a
+                 , m `A.CanRunAll` r
+                 ) => DistributedActorContext r a ()
 expectMessage = A.behavior =<< Right <$> liftProcess expect
 
-instance (A.Actor a, DistributedActorContext a `A.HasAllCapabillities` a) => A.ActorContext a (DistributedActorContext a) where
+instance ( r `A.IsRootOf` a
+         , m `A.CanRunAll` r
+         ) => A.ActorContext r a (DistributedActorContext r a) where
     self = A.ActorRef . encode <$> liftProcess getSelfPid
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
-    create' :: forall b.
-      ( A.Actor b
-      , b :∈ A.Creates a
-      , DistributedActorContext a `A.HasAllCapabillities` b
-      ) => Proxy b -> DistributedActorContext a (A.ActorRef b)
-    create' _ = liftProcess $ do
-        nodeId <- getSelfNode -- only spawn on this node for now. Maybe create some kind of loadbalancing mechanism?
-        pid <- spawn nodeId (staticRunActor @b)
-        return . A.ActorRef . encode $ pid
 
-instance MonadIO (DistributedActorContext a) where
+instance MonadIO (DistributedActorContext r a) where
     liftIO = DistributedActorContext . lift . liftIO
 
-staticRunActor :: forall a. (A.Actor a, DistributedActorContext a `A.HasAllCapabillities` a) => Closure (Process ())
+staticRunActor :: forall a r. (A.Actor a, DistributedActorContext r a `A.HasAllCapabillities` a) => Closure (Process ())
 staticRunActor = error "cant run static actor"
 
-runActor :: forall a. (A.Actor a, DistributedActorContext a `A.HasAllCapabillities` a) => Process ()
+runActor :: forall a r. (A.Actor a, DistributedActorContext r a `A.HasAllCapabillities` a) => Process ()
 runActor = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
   where
     initActor = A.behavior . Left $ A.Created
     awaitMessage = A.behavior . Right =<<liftProcess (expect @(A.Message a))
 
-createActorSystem :: forall a. (A.Actor a, DistributedActorContext a `A.HasAllCapabillities` a) => Transport -> IO ()
+createActorSystem :: forall a. (A.Actor a, DistributedActorContext a a `A.HasAllCapabillities` a) => Transport -> IO ()
 createActorSystem t = do
     node <- newLocalNode t initRemoteTable
     runProcess node (runActor @a)

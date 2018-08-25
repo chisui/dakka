@@ -1,8 +1,13 @@
+{-# LANGUAGE AllowAmbiguousTypes     #-}
 {-# LANGUAGE DataKinds               #-}
 {-# LANGUAGE DeriveAnyClass          #-}
 {-# LANGUAGE DeriveGeneric           #-}
+{-# LANGUAGE ExplicitNamespaces      #-}
 {-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE FlexibleInstances       #-}
+{-# LANGUAGE InstanceSigs            #-}
 {-# LANGUAGE KindSignatures          #-}
+{-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE MultiParamTypeClasses   #-}
 {-# LANGUAGE PackageImports          #-}
 {-# LANGUAGE RankNTypes              #-}
@@ -15,52 +20,52 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 module Dakka.Actor.RootActor where
 
-import           "base" Data.Proxy      (Proxy (..))
-import           "base" Data.Void       (Void)
 import           "base" GHC.Generics    (Generic)
-import           "base" Type.Reflection
+import           "base" Type.Reflection (Typeable)
 
 import           "binary" Data.Binary   (Binary)
 
 
-import           Dakka.Actor.Base       (Actor (Creates, Message, behavior),
-                                         ActorAction, Signal (..), create, noop)
-import           Dakka.Constraints      ((:⊆), ImplementedByAll)
-import           Dakka.HasStartState    (HasStartState)
+import           Dakka.Actor.Base       (Actor, ActorContext, Creates,
+                                         Signal (Created), behavior, create)
+import           Dakka.Constraints      (ImplementedByAll (..), type (∈), noop)
+import           Dakka.Types            (showsType)
 
 
 data RootActor (l :: [*]) = RootActor
     deriving (Eq, Ord, Generic, Binary)
+
 instance Semigroup (RootActor l) where
     (<>) = const id
 instance Monoid (RootActor l) where
     mempty = RootActor
-instance HasStartState (RootActor l)
 
-instance IsRootActor l => Show (RootActor l) where
-    showsPrec d r = showParen (d > 10)
-                  $ showString "RootActor <<"
-                  . shows (createsActors r)
-                  . showString ">>"
+instance Typeable l => Show (RootActor l) where
+    showsPrec d _
+        = showParen (d > 10)
+        $ showString "RootActor "
+        . showsType @l
 
-instance (IsRootActor l, Typeable l, l :⊆ l) => Actor (RootActor (l :: [*])) where
+
+instance ( Actor `ImplementedByAll` Creates (RootActor l)
+         , CanCreateAll l (RootActor l)
+         , Typeable l
+         ) => Actor (RootActor (l :: [*])) where
     type Creates (RootActor l) = l
-    type Message (RootActor l) = Void
-    behavior (Left Created) = initRootActor (RootActor @l)
-    behavior _              = pure ()
+    behavior = \case
+        (Left Created) -> createAllOnce @l
+        _              -> noop
 
-class (Actor `ImplementedByAll` l, Typeable l) => IsRootActor (l :: [*]) where
-    initRootActor :: (Actor a, l :⊆ Creates a) => RootActor l -> ActorAction m a
-    createsActors :: RootActor l -> [SomeTypeRep]
 
-instance IsRootActor '[] where
-    initRootActor   = noop
-    createsActors _ = []
+class Typeable l => CanCreateAll (l :: [*]) a where
+    createAllOnce :: ActorContext a m => m ()
 
-instance (Actor a, IsRootActor as) => IsRootActor (a ': as) where
-    initRootActor _ = do
-        _ <- create @a
-        initRootActor (RootActor @as)
-    createsActors _ = someTypeRep (Proxy @a) : createsActors (RootActor @as)
+instance CanCreateAll '[] a where
+    createAllOnce = noop
 
+instance ( Actor e
+         , e ∈ Creates a
+         , CanCreateAll es a
+         ) => CanCreateAll (e ': es) a where
+    createAllOnce = create @e *> createAllOnce @es
 

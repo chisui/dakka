@@ -1,27 +1,30 @@
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PackageImports        #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 module TestActors where
 
-import "base" Data.Proxy ( Proxy(..) )
-import "base" GHC.Generics ( Generic )
-import "base" Control.Applicative ( Const(..) )
+import           "base" Control.Applicative      (Const (..))
+import           "base" Data.Proxy               (Proxy (..))
+import           "base" GHC.Generics             (Generic)
 
-import "dakka" Dakka.Actor ( Actor(..), ActorContext(..), ActorRef, Signal(Created), create, send, noop, HasStartState(start) )
-import "dakka" Dakka.AnswerableMessage ( AnswerableMessage, answerableMessage, answer )
-import "dakka" Dakka.Convert ( Convertible(..) )
+import           "dakka" Dakka.Actor             (Actor (..), ActorContext (..),
+                                                  ActorRef, Signal (Created),
+                                                  create, noop, send)
+import           "dakka" Dakka.AnswerableMessage (AnswerableMessage, answer,
+                                                  answerableMessage)
+import           "dakka" Dakka.Convert           (Convertible (..))
 
-import "base" Control.Monad.IO.Class ( MonadIO( liftIO ) )
-import "mtl" Control.Monad.State.Class ( modify, get, put )
-import "binary" Data.Binary ( Binary )
+import           "base" Control.Monad.IO.Class   (MonadIO (liftIO))
+import           "mtl" Control.Monad.State.Class (get, modify, put)
+import           "binary" Data.Binary            (Binary)
 
 
 
@@ -36,37 +39,35 @@ instance Semigroup TestActor where
 instance Monoid TestActor where
     mempty = TestActor 0
 
-instance HasStartState TestActor where
-    start = mempty
-
 instance Actor TestActor where
     type Message TestActor = String
     type Creates TestActor = '[OtherActor, WithRef]
     type Capabillities TestActor = '[MonadIO]
 
-    onSignal = noop
-    onMessage m = do
+    behavior = \case
+        (Right m) -> do
 
-        -- change interal actor state through MonadState
-        modify (TestActor . succ . i)
+            -- change interal actor state through MonadState
+            modify (TestActor . succ . i)
 
-        -- Since Capabillities contain 'MonadIO' we can use 'liftIO'.
-        -- The Context has to also implement 'MonadIO' to run this behavior
-        liftIO $ putStrLn m
+            -- Since Capabillities contain 'MonadIO' we can use 'liftIO'.
+            -- The Context has to also implement 'MonadIO' to run this behavior
+            liftIO $ putStrLn m
 
-        -- create a new Actor and send a message to it.
-        -- You can only create Actors that are in 'Creates'.
-        -- You can also only send messages that the actor can handle to them.
-        create @OtherActor >>= (! Msg m)
+            -- create a new Actor and send a message to it.
+            -- You can only create Actors that are in 'Creates'.
+            -- You can also only send messages that the actor can handle to them.
+            create @OtherActor >>= (! Msg m)
 
-        -- Create an Actor reference from a path.
-        -- The path has to be consistent.
+            -- Create an Actor reference from a path.
+            -- The path has to be consistent.
 
-        wr <- create @WithRef
+            wr <- create @WithRef
 
-        -- Send an AnswerableMessage to the refered actor.
-        -- The message contains a reference to this actor.
-        answerableMessage <$> self >>= send wr
+            -- Send an AnswerableMessage to the refered actor.
+            -- The message contains a reference to this actor.
+            answerableMessage <$> self >>= send wr
+        _ -> noop
 
 apply :: forall proxy a b. (Convertible a b, Show b) => proxy b -> a -> IO ()
 apply _ = print . (convert :: a -> b)
@@ -92,15 +93,16 @@ instance Actor Turnstile where
     type Message Turnstile = TurnstileInput
     startState = Locked
 
-    onSignal = noop
     -- Unlock on Coin. Lock un Push
-    onMessage m = get >>= \case
-        Locked -> case m of
-                    Coin -> put Unlocked
-                    Push -> return ()
-        Unlocked -> case m of
-                        Coin -> return ()
-                        Push -> put Locked
+    behavior = \case
+        (Right m) -> get >>= \case
+            Locked -> case m of
+                        Coin -> put Unlocked
+                        Push -> return ()
+            Unlocked -> case m of
+                            Coin -> return ()
+                            Push -> put Locked
+        _ -> noop
 
 
 -- | Actor with custom message type.
@@ -109,43 +111,44 @@ newtype Msg = Msg String deriving (Show, Eq, Generic, Binary)
 instance Convertible String Msg where
     convert = Msg
 
-data OtherActor = OtherActor deriving (Show, Eq, Generic, Binary)
+data OtherActor = OtherActor deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
 instance Actor OtherActor where
     type Message OtherActor = Msg
     type Creates OtherActor = '[WithRef]
-    onSignal = noop
-    onMessage _ = do
-        p <- create @WithRef
-        a <- self
-        p ! answerableMessage a
+    behavior = \case
+        (Right m) -> do
+            p <- create @WithRef
+            a <- self
+            p ! answerableMessage a
+        _ -> noop
 
-    startState = OtherActor
 
 
 -- | Actor that handles references to other Actors
-data WithRef = WithRef deriving (Show, Eq, Generic, Binary)
+data WithRef = WithRef deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
 instance Actor WithRef where
     type Message WithRef = AnswerableMessage String
-    onSignal = noop
-    onMessage a = "hello" `answer` a
-    startState = WithRef
+    behavior = \case
+        (Right a) -> "hello" `answer` a
+        _ -> noop
 
-data Sender = Sender deriving (Show, Eq, Generic, Binary)
+
+data Sender = Sender deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
 instance Actor Sender where
     type Message Sender = ActorRef Reciever
-    onSignal = noop
-    onMessage = (! "hello")
-    startState = Sender
+    behavior = \case
+        (Right a) -> a ! "hello"
+        _ -> noop
 
-newtype Reciever = Reciever (Maybe String) deriving (Show, Eq, Generic, Binary)
+newtype Reciever = Reciever (Maybe String) deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
 instance Actor Reciever where
     type Message Reciever = String
     type Creates Reciever = '[Sender]
-    onSignal Created = do
-      ref <- create @Sender
-      me <- self
-      ref ! me
-    onSignal _ = pure ()
-    onMessage = put . Reciever . Just 
-    startState = Reciever Nothing
+    behavior = \case
+        (Left Created) -> do
+            ref <- create @Sender
+            me <- self
+            ref ! me
+        (Right m) -> put . Reciever . Just $ m
+        _ -> noop
 

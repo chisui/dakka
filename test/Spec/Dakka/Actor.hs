@@ -1,102 +1,107 @@
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-type-defaults #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE PackageImports             #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Spec.Dakka.Actor where
 
-import "base" GHC.Generics ( Generic )
-import "base" Data.Typeable ( Typeable, typeRep, TypeRep )
-import "base" Numeric.Natural ( Natural )
-import "base" Control.Monad ( void, ap )
-import "base" Data.Proxy ( Proxy(..) )
+import           "base" Control.Monad                     (ap, void)
+import           "base" Data.Monoid                       (Sum)
+import           "base" Data.Proxy                        (Proxy (..))
+import           "base" Data.Typeable                     (TypeRep, typeRep)
+import           "base" GHC.Generics                      (Generic)
+import           "base" Numeric.Natural                   (Natural)
 
-import "binary" Data.Binary ( Binary )
+import           "binary" Data.Binary                     (Binary)
 
-import "mtl" Control.Monad.State.Class ( MonadState(..) )
+import           "mtl" Control.Monad.State.Class          (MonadState (..))
 
-import "bytestring" Data.ByteString.Lazy ( pack ) 
+import           "bytestring" Data.ByteString.Lazy        (pack)
 
-import "tasty" Test.Tasty ( testGroup, TestTree )
-import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Arbitrary(..), oneof, Positive(..) )
+import           "tasty" Test.Tasty                       (TestTree, testGroup)
+import           "tasty-hunit" Test.Tasty.HUnit           (testCase, (@=?))
+import           "tasty-quickcheck" Test.Tasty.QuickCheck (Arbitrary (..),
+                                                           Positive (..), oneof,
+                                                           testProperty, (===))
 
-import "dakka" Dakka.Actor
-import "dakka" Dakka.MockActorContext
-import "dakka" Dakka.Path
+import           "dakka" Dakka.Actor.Internal
+import           "dakka" Dakka.MockActorContext
+import           "dakka" Dakka.Types
 
-import TestUtils ( testMonoid )
+import           TestUtils                                (testMonoid)
 
 
-data TrivialActor = TrivialActor
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState TrivialActor
+newtype TrivialActor = TrivialActor ()
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
+
 instance Actor TrivialActor where
-    behavior = noop
+    type Message TrivialActor = ()
 
 
-data CreatesActor = CreatesActor
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState CreatesActor
+newtype CreatesActor = CreatesActor ()
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor CreatesActor where
     type Creates CreatesActor = '[TrivialActor]
     behavior _ = void $ create @TrivialActor
 instance Arbitrary CreatesActor where
-    arbitrary = return CreatesActor
+    arbitrary = pure mempty
 
-data PlainMessageActor = PlainMessageActor 
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState PlainMessageActor 
+newtype PlainMessageActor = PlainMessageActor ()
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor PlainMessageActor where
     type Message PlainMessageActor = String
-    onMessage "hello" = pure () 
-    onMessage _       = pure () 
-    onSignal = noop
+    behavior = \case
+        (Right "hello") -> noop
+        _ -> noop
 
 
-newtype CustomStateActor = CustomStateActor Int
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState CustomStateActor where
-    start = CustomStateActor 0
-instance Actor CustomStateActor where
-    behavior = noop
-
+newtype CustomStateActor = CustomStateActor (Sum Int)
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary, Actor)
 
 class CustomCapabillity (m :: * -> *) where
     custom :: m ()
 
-data CustomCapabillitiesActor = CustomCapabillitiesActor 
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState CustomCapabillitiesActor 
+newtype CustomCapabillitiesActor = CustomCapabillitiesActor ()
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor CustomCapabillitiesActor where
     type Capabillities CustomCapabillitiesActor = '[CustomCapabillity]
     behavior _ = custom
 
 
-data GenericActor (a :: *) = GenericActor 
-    deriving (Eq, Ord, Show, Read, Generic, Binary)
-instance HasStartState (GenericActor a)
-instance Typeable a => Actor (GenericActor a) where
-    behavior = noop
+newtype GenericActor (a :: *) = GenericActor ()
+    deriving stock    (Eq, Ord, Show, Read, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary, Actor)
 
 data DummyContext a v = DummyContext
-instance Actor a => ActorContext a (DummyContext a) where
+instance (DummyContext a `CanRunAll` a, Actor a) => ActorContext a (DummyContext a) where
     self      = DummyContext
     create' _ = DummyContext
     send _ _  = DummyContext
 instance MonadState a (DummyContext a) where
-    state _ = DummyContext
-instance (Tip (as ':/ a) ~ a) => MonadState a (DummyContext (as ':/ a)) where
     state _ = DummyContext
 instance Functor (DummyContext p) where
     fmap _ _ = DummyContext
@@ -113,16 +118,27 @@ instance Arbitrary (DummyContext p a) where
 instance Arbitrary Natural where
     arbitrary = fromInteger . getPositive <$> arbitrary
 
-instance (Arbitrary a, Actor a) => Arbitrary (Signal (DummyContext a) a) where
-  arbitrary = oneof
-        [ pure Created
-        , do aId <- pack <$> arbitrary
-             a <- arbitrary
-             pure $ Obit (ActorRef aId :: ActorRef a) a
+
+newtype SignalWrapper (a :: [*]) = SignalWrapper
+    { unwrapSignal :: Signal }
+  deriving Eq
+instance Show (SignalWrapper a) where show = show . unwrapSignal
+
+instance Actor a => Arbitrary (ActorRef a) where
+    arbitrary = ActorRef . pack <$> arbitrary
+
+instance Arbitrary (SignalWrapper '[]) where
+    arbitrary = pure $ SignalWrapper Created
+
+instance (Actor a, Arbitrary a, Arbitrary (SignalWrapper as)) => Arbitrary (SignalWrapper (a ': as)) where
+    arbitrary = SignalWrapper <$> oneof
+        [ Obit <$> arbitrary @(ActorRef a)
+               <*> arbitrary @a
+        , unwrapSignal <$> arbitrary @(SignalWrapper as)
         ]
 
 
-type SomeSignal = Signal (DummyContext CreatesActor) CreatesActor
+type SomeSignal = SignalWrapper '[CreatesActor]
 type SomeRootActor = RootActor '[TrivialActor, PlainMessageActor]
 type VoidDummyCtx = DummyContext (RootActor '[])
 
@@ -134,38 +150,38 @@ tests = testGroup "Dakka.Actor"
     [ testGroup "Signal"
         [ testGroup "Eq"
             [ testProperty "a == a" $
-                \ (s :: SomeSignal) -> s === s
+                \ (s :: SomeSignal) -> unwrapSignal s === unwrapSignal s
             , testProperty "a == b" $
-                \ (a :: SomeSignal) (b :: SomeSignal) -> case (a, b) of
+                \ (a :: SomeSignal) (b :: SomeSignal) -> case (unwrapSignal a, unwrapSignal b) of
                     (Created, Created)             -> a === b
                     (Obit refA' a', Obit refB' b') -> (a == b) === (refA' =~= refB' && a' =~= b')
                     _                              -> (a == b) === False
             ]
         , testProperty "Show" $
-            \ (s :: SomeSignal) -> case s of
-                Obit refA a  -> show s === "Obit " ++ show refA ++ " " ++ show a
-                Created -> show s === "Created <<CreatesActor>>"
+            \ (s :: SomeSignal) -> case unwrapSignal s of
+                Obit refA a  -> show (unwrapSignal s) === "Obit " ++ show refA ++ " " ++ show a
+                Created -> show (unwrapSignal s) === "Created <<CreatesActor>>"
         ]
     , testGroup "RootActor"
         [ testMonoid @SomeRootActor
         , testGroup "Show"
             [ testCase "RootActor <<[TrivialActor,PlainMessageActor]>>" $
-                show (mempty @SomeRootActor) @=? "RootActor <<[TrivialActor,PlainMessageActor]>>" 
+                show (mempty @SomeRootActor) @=? "RootActor <<[TrivialActor,PlainMessageActor]>>"
             , testCase "RootActor <<[]>>" $
                 show (mempty @(RootActor '[])) @=? "RootActor <<[]>>"
-            ] 
+            ]
         , testGroup "behavior"
             [ testCase "run Created $ RootActor '[TrivialActor, PlainMessageActor]" $ do
-                let [msg0, msg1] = snd $ execMock' $ onSignal @SomeRootActor Created
+                let [msg0, msg1] = snd $ execMock' $ behavior @SomeRootActor (Left Created)
                 createdType msg0 @=? typeRep (Proxy @TrivialActor)
                 createdType msg1 @=? typeRep (Proxy @PlainMessageActor)
             , testCase "run Created $ RootActor '[]" $
-                snd (execMock' (onSignal @(RootActor '[]) Created)) @=? []
+                snd (execMock' (behavior @(RootActor '[]) (Left Created))) @=? []
             ]
         ]
     ]
 
 createdType :: SystemMessage -> TypeRep
-createdType (Creates r) = typeRep r
+createdType (Left (Creates r)) = typeRep r
 createdType m = error $ "expected Creates SystemMessage but got" ++ show m
 

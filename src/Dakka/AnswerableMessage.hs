@@ -22,8 +22,8 @@ import           "binary" Data.Binary (Binary (..))
 
 import           Dakka.Actor          (Actor (Message), ActorContext (..),
                                        ActorRef)
-import           Dakka.Constraints    ((=~=))
 import           Dakka.Convert        (Convertible (..))
+import           Dakka.Types          ((=~=))
 
 data ConstraintAnswerableMessage (m :: *) (c :: * -> Constraint)
   = forall a.

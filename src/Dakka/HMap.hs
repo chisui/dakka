@@ -16,7 +16,7 @@ import           "base" Unsafe.Coerce  (unsafeCoerce)
 import           "containers" Data.Map (Map, empty, insert)
 import qualified "containers" Data.Map as Map
 
-import           Dakka.Constraints     (GEq (geq), GOrd (gcompare), (=~=))
+import           Dakka.Types           (GEq (geq), GOrd (gcompare), (=~=))
 
 
 data Key k where

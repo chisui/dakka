@@ -1,10 +1,7 @@
-{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE DefaultSignatures         #-}
-{-# LANGUAGE DeriveAnyClass            #-}
-{-# LANGUAGE DeriveFunctor             #-}
-{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExplicitNamespaces        #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FunctionalDependencies    #-}
@@ -22,61 +19,45 @@
 {-# LANGUAGE UndecidableInstances      #-}
 {-# LANGUAGE UndecidableSuperClasses   #-}
 module Dakka.Actor.Base
-    ( ActorRef(..)
+    ( HasAllCapabillities
+    , CanRunAll
     , ActorContext(..)
-    , HasAllCapabillities
     , create
-    , Actor(..)
-    , ActorAction
-    , Behavior
-    , behaviorOf
-    , LeafActor
-    , PureActor
     , Signal(..)
-    , noop
+    , Actor(..)
     ) where
 
-import           "base" Data.Kind                  (Constraint)
-import           "base" Data.Proxy                 (Proxy (..))
-import           "base" Data.Typeable              (Typeable, typeRep)
-import           "base" GHC.Generics               (Generic)
+import           "base" Data.Kind                (Constraint)
+import           "base" Data.Proxy               (Proxy (..))
+import           "base" Data.Void                (Void)
 
-import           "bytestring" Data.ByteString.Lazy (ByteString)
+import           "mtl" Control.Monad.State.Class (MonadState)
 
-import           "mtl" Control.Monad.State.Class   (MonadState)
-
-import           "binary" Data.Binary              (Binary)
-
-import           Dakka.Constraints                 ((:∈), GEq (..), GOrd (..),
-                                                    ImplementedByAll,
-                                                    ImplementsAll, RichData,
-                                                    (=~=))
-
-import           Dakka.HasStartState               (HasStartState (..))
+import           Dakka.Actor.ActorRef            (ActorRef (..))
+import           Dakka.Constraints               (ImplementedByAll,
+                                                  ImplementsAll, Noop (..),
+                                                  RichData, type (∈))
+import           Dakka.Types                     ((=~=))
 
 
--- ---------- --
---  ActorRef  --
--- ---------- --
+-- -------------------------- --
+--  ActorContext constraints  --
+-- -------------------------- --
 
-newtype ActorRef a = ActorRef { actorId :: ByteString }
-  deriving (Eq, Generic, Functor, Binary)
+class    (m `ImplementsAll` Capabillities a, HasAllCapabillities' m (Creates a)) => HasAllCapabillities m a
+instance (m `ImplementsAll` Capabillities a, HasAllCapabillities' m (Creates a)) => HasAllCapabillities m a
 
-instance Typeable a => Show (ActorRef a) where
-    showsPrec d ref@(ActorRef aId) = showParen (d > 10)
-                                   $ showString "ActorRef <<"
-                                   . shows (typeRep ref)
-                                   . showString ">>@"
-                                   . shows aId
+class    HasAllCapabillities' m cs
+instance HasAllCapabillities' m '[]
+instance (HasAllCapabillities m a, HasAllCapabillities' m as) => HasAllCapabillities' m (a ': as)
 
-instance GEq ActorRef where
-instance GOrd ActorRef where
-    gcompare refA@(ActorRef idA) refB@(ActorRef idB) = typeRep refA `compare` typeRep refB <> idA `compare` idB
+class    (m `CanRunAll'` Creates a) => CanRunAll m a
+instance (m `CanRunAll'` Creates a) => CanRunAll m a
 
-type HasAllCapabillities m a = (m `ImplementsAll` Capabillities a, HasAllCapabillities' m (Creates a))
-type family HasAllCapabillities' m cs :: Constraint where
-    HasAllCapabillities' m '[] = ()
-    HasAllCapabillities' m (a ': as) = (HasAllCapabillities m a, HasAllCapabillities' m as)
+class    CanRunAll' m l
+instance (CanRunAll' m as, CanRunAll m a) => CanRunAll' m (a ': as)
+instance CanRunAll' m '[]
+
 
 -- -------------- --
 --  ActorContext  --
@@ -91,19 +72,16 @@ type family HasAllCapabillities' m cs :: Constraint where
 --
 --     * create new actors.
 --
-class ( Actor a
+class ( m `CanRunAll` a
       , MonadState a m
-      ) => ActorContext a (m :: * -> *) | m -> a
+      ) => ActorContext (a :: *) (m :: * -> *) | m -> a
     where
       {-# MINIMAL self, create', (send | (!)) #-}
       -- | reference to the currently running 'Actor'
       self :: m (ActorRef a)
 
       -- | Creates a new `Actor` of type 'b' with provided start state
-      create' :: ( Actor a
-                 , Actor b
-                 , b :∈ Creates a
-                 ) => Proxy b -> m (ActorRef b)
+      create' :: (Actor b, b ∈ Creates a) => proxy b -> m (ActorRef b)
 
       -- | Send a message to another actor
       send :: Actor b => ActorRef b -> Message b -> m ()
@@ -115,55 +93,35 @@ class ( Actor a
 
 
 create :: forall b a m.
-  ( Actor b
-  , Actor a
-  , ActorContext a m
-  , b :∈ Creates a
+  ( ActorContext a m
+  , Actor b
+  , b ∈ Creates a
   ) => m (ActorRef b)
 create = create' Proxy
+
 
 -- ------- --
 --  Actor  --
 -- ------- --
 
--- | A Behavior of an 'Actor' defines how an Actor reacts to a message given a specific state.
--- A Behavior may be executed in any 'ActorContext' that has all of the actors 'Capabillities'.
-type ActorAction (m :: * -> *) (a :: *)
-  = ( Actor a
-    , ActorContext a m
-    , HasAllCapabillities m a
-    ) => m ()
+data Signal where
+    Created :: Signal
+    Obit    :: Actor a => ActorRef a -> a -> Signal
 
-type Behavior a = forall (m :: * -> *). Either (Signal m a) (Message a) -> ActorAction m a
+deriving instance Show Signal
+instance Eq Signal where
+    Created    == Created    = True
+    Obit r0 a0 == Obit r1 a1 = r0 =~= r1 && a0 =~= a1
+    _          == _          = False
 
-data Signal (m :: * -> *) (a :: *) where
-    Created :: Actor a => Signal m a
-    Obit    :: Actor a => ActorRef a -> a -> Signal m a
 
-deriving instance (Typeable m, Typeable a) => Typeable (Signal m a)
-
-instance ActorContext a m => Eq (Signal m a) where
-    Created       == Created       = True
-    (Obit refa a) == (Obit refb b) = refa `geq` refb && a =~= b
-    _             == _             = False
-
-instance ActorContext a m => Show (Signal m a) where
-    showsPrec d s = showParen (d > 10) $
-        case s of
-            Created    -> showString "Created <<"
-                        . showsPrec 11 (typeRep s)
-                        . showString ">>"
-            (Obit r a) -> showString "Obit "
-                        . shows r
-                        . showString " "
-                        . shows a
+type Msg a = Either Signal (Message a)
 
 class ( RichData a
       , RichData (Message a)
       , Actor `ImplementedByAll` Creates a
       ) => Actor (a :: *)
     where
-      {-# MINIMAL behavior | (onMessage, onSignal) #-}
 
       -- | List of all types of actors that this actor may create in its lifetime.
       type Creates a :: [*]
@@ -171,41 +129,21 @@ class ( RichData a
 
       -- | Type of Message this Actor may recieve
       type Message a :: *
-      type Message a = ()
+      type Message a = Void
 
       -- | List of all additional Capabillities the ActorContext has to provide For this Actors Behavior.
       type Capabillities a :: [(* -> *) -> Constraint]
       type Capabillities a = '[]
 
-      -- | What this Actor does when recieving a message
-      onMessage :: Message a -> ActorAction m a
-      onMessage = behavior . Right
-
-      -- | What this Actor does when recieving a Signal
-      onSignal :: Signal m a -> ActorAction m a
-      onSignal = behavior . Left
-
       -- | The behavior of this Actor
-      behavior :: Either (Signal m a) (Message a) -> ActorAction m a
-      behavior = either onSignal onMessage
+      behavior :: forall m.
+                ( m `CanRunAll` a
+                , ActorContext a m
+                , m `HasAllCapabillities` a
+                ) => Msg a -> m ()
+      behavior _ = noop
 
       startState :: a
-      default startState :: HasStartState a => a
-      startState = start
-
--- | A pure 'Actor' is one that has no additional Capabillities besides what a
--- 'ActorContext' provides.
-type PureActor a = (Actor a, Capabillities a ~ '[])
-
--- | A leaf 'Actor' is one that doesn't create any children.
-type LeafActor a = (Actor a, Creates a ~ '[])
-
-behaviorOf :: proxy a -> Behavior a
-behaviorOf = const behavior
-
-noop :: (Applicative f, Applicative g) => f (g ())
-noop = pure noop'
-
-noop' :: Applicative f => f ()
-noop' = pure ()
+      default startState :: Monoid a => a
+      startState = mempty
 

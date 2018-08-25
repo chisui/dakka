@@ -38,12 +38,14 @@ import           "mtl" Control.Monad.State.Class                (MonadState (get
                                                                  gets)
 import           "mtl" Control.Monad.Writer.Class               (MonadWriter (tell))
 
-import           Dakka.Actor                                    (Actor (Message, startState),
-                                                                 ActorContext (create', self, (!)))
-import           Dakka.Actor.Base                               (ActorRef (ActorRef))
-import           Dakka.Constraints                              ((=~=))
+import           Dakka.Actor                                    (Actor, ActorContext (create', self, (!)),
+                                                                 CanRunAll,
+                                                                 Message,
+                                                                 startState)
+import           Dakka.Actor.ActorRef                           (ActorRef (ActorRef))
 import           Dakka.HMap                                     (HMap)
 import qualified Dakka.HMap                                     as HMap
+import           Dakka.Types                                    ((=~=))
 
 
 -------------------
@@ -139,7 +141,7 @@ instance Actor a => MonadState a (MockActorContext a) where
             let m' = HMap.hInsert ref a m
             put $ CtxState i m'
 
-instance Actor a => ActorContext a (MockActorContext a) where
+instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActorContext a) where
 
     self = ask
 
@@ -193,4 +195,3 @@ evalMock ctx a = fst $ runMock ctx a
 
 evalMock' :: forall a v. Actor a => MockActorContext a v -> v
 evalMock' ctx = fst $ runMock' ctx
-

@@ -1,40 +1,40 @@
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE PackageImports      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 module Spec.Dakka.AnswerableMessage ( tests ) where
 
-import "base" Data.Typeable ( cast )
-import "base" Control.Applicative ( liftA2 )
-import "base" GHC.Generics ( Generic )
+import           "base" Control.Applicative      (liftA2)
+import           "base" Data.Typeable            (cast)
+import           "base" GHC.Generics             (Generic)
 
-import "binary" Data.Binary ( Binary )
+import           "binary" Data.Binary            (Binary)
 
-import "tasty" Test.Tasty ( TestTree, testGroup )
-import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
+import           "tasty" Test.Tasty              (TestTree, testGroup)
+import           "tasty-hunit" Test.Tasty.HUnit  (testCase, (@=?))
 
-import "dakka" Dakka.Actor
-import "dakka" Dakka.AnswerableMessage
-import "dakka" Dakka.MockActorContext
+import           "dakka" Dakka.Actor
+import           "dakka" Dakka.AnswerableMessage
+import           "dakka" Dakka.MockActorContext
 
 
 -- | Actor that always answers "hello"
 data SimpleAnsweringActor = SimpleAnsweringActor
-    deriving (Eq, Show, Generic, Binary)
-instance HasStartState SimpleAnsweringActor
+    deriving (Eq, Show, Generic, Binary, Semigroup, Monoid)
 instance Actor SimpleAnsweringActor where
     type Message SimpleAnsweringActor = AnswerableMessage String
-    onMessage = answer "hello"
-    onSignal = noop
+    behavior = \case
+        (Right m) -> answer "hello" m
+        _ -> noop
 
 -- | Actor that creates a SimpleAnsweringActor on creation and asks it a question
 data SimpleAskingActor = SimpleAskingActor
-    deriving (Eq, Show, Generic, Binary)
-instance HasStartState SimpleAskingActor
+    deriving (Eq, Show, Generic, Binary, Semigroup, Monoid)
 instance Actor SimpleAskingActor where
     type Message SimpleAskingActor = String
     type Creates SimpleAskingActor = '[SimpleAnsweringActor]
@@ -48,11 +48,11 @@ tests :: TestTree
 tests = testGroup "Dakka.AnswerableMessage"
     [ testCase "ask and answer chain" $ do
 
-        let [_, askAction] = snd $ execMock' @SimpleAskingActor (onSignal Created)
+        let [_, askAction] = snd $ execMock' @SimpleAskingActor (behavior (Left Created))
 
         let (Just (_, askMsg)) = unwrapAskAction askAction
 
-        let [answerAction] = snd $ execMock' @SimpleAnsweringActor (onMessage askMsg)
+        let [answerAction] = snd $ execMock' @SimpleAnsweringActor (behavior (Right askMsg))
 
         let (Just (_, answerMsg)) = unwrapAnswerAction answerAction
 
@@ -60,8 +60,8 @@ tests = testGroup "Dakka.AnswerableMessage"
     ]
 
 unwrapSend :: forall a. Actor a => SystemMessage -> Maybe (ActorRef a, Message a)
-unwrapSend (Send r m) = liftA2 (,) (cast r) (cast m)
-unwrapSend _ = Nothing
+unwrapSend (Right (Send r m)) = liftA2 (,) (cast r) (cast m)
+unwrapSend _                  = Nothing
 
 unwrapAskAction :: SystemMessage -> Maybe (ActorRef SimpleAnsweringActor, AnswerableMessage String)
 unwrapAskAction = unwrapSend

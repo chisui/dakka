@@ -1,38 +1,32 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-} -- Arbitrary 
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-} -- Arbitrary
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PackageImports       #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
 module Spec.Dakka.MockActorContext ( tests ) where
 
-import "mtl" Control.Monad.State.Class ( modify )
+import           "mtl" Control.Monad.State.Class          (modify)
 
-import "bytestring" Data.ByteString.Lazy ( pack ) 
+import           "tasty" Test.Tasty                       (TestTree, testGroup)
+import           "tasty-hunit" Test.Tasty.HUnit           (testCase, (@=?))
+import           "tasty-quickcheck" Test.Tasty.QuickCheck (testProperty, (===))
 
-import "tasty" Test.Tasty ( testGroup, TestTree )
-import "tasty-hunit" Test.Tasty.HUnit ( testCase, (@=?) )
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( testProperty, (===), Arbitrary(..) )
+import           Spec.Dakka.Actor                         hiding (tests)
 
-import Spec.Dakka.Actor hiding ( tests )
-import Spec.Dakka.PathArbitrary ()
-
-import "dakka" Dakka.MockActorContext
-import "dakka" Dakka.Actor
+import           "dakka" Dakka.Actor.Internal
+import           "dakka" Dakka.MockActorContext
 
 
 type SomePath = ActorRef PlainMessageActor
 
 somePath :: SomePath
-somePath = ActorRef "0" 
+somePath = ActorRef "0"
 
-
-instance Arbitrary (ActorRef a) where
-    arbitrary = ActorRef . pack <$> arbitrary
 
 tests :: TestTree
 tests = testGroup "Dakka.MockActorContext"
@@ -60,12 +54,12 @@ tests = testGroup "Dakka.MockActorContext"
             , testGroup "create"
                 [ testCase "returns new path" $
                     evalMock' @CreatesActor (create @TrivialActor)
-                        @=? ActorRef "0" 
+                        @=? ActorRef "0"
                 , testCase "fires Create message" $
-                    snd (execMock' @CreatesActor (create @TrivialActor)) @=? [Creates (ActorRef @TrivialActor "1")]
+                    snd (execMock' @CreatesActor (create @TrivialActor)) @=? [Left (Creates (ActorRef @TrivialActor "1"))]
                 ]
             , testCase "send" $
-                snd (execMock' @PlainMessageActor (self >>= (! "hello"))) @=? [Send somePath "hello"]
+                snd (execMock' @PlainMessageActor (self >>= (! "hello"))) @=? [Right (Send somePath "hello")]
             ]
         , testGroup "MonadState"
             [ testCase "state" $
@@ -73,7 +67,7 @@ tests = testGroup "Dakka.MockActorContext"
                     @=? CustomStateActor 1
             ]
         , testCase "runMock somePath (pure ()) PlainMessageActor = ((), (PlainMessageActor, []))" $
-            runMock (pure ()) PlainMessageActor @=? ((), (PlainMessageActor, []))
+            runMock (pure ()) (mempty @PlainMessageActor) @=? ((), (mempty, []))
         ]
     ]
 
