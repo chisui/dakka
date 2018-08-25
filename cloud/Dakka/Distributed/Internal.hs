@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -20,7 +19,6 @@ import           "base" Control.Monad                                   (forever
 import           "base" Control.Monad.IO.Class                          (MonadIO,
                                                                          liftIO)
 import           "base" Data.Functor                                    (void)
-import           "base" Data.Proxy                                      (Proxy)
 
 import           "transformers" Control.Monad.Trans.Class               (lift)
 import           "transformers" Control.Monad.Trans.State.Lazy          (StateT, runStateT)
@@ -32,10 +30,8 @@ import           "network-transport" Network.Transport                  (Transpo
 import           "distributed-process" Control.Distributed.Process      (Closure,
                                                                          Process,
                                                                          expect,
-                                                                         getSelfNode,
                                                                          getSelfPid,
-                                                                         send,
-                                                                         spawn)
+                                                                         send)
 import           "distributed-process" Control.Distributed.Process.Node (initRemoteTable,
                                                                          newLocalNode,
                                                                          runProcess)
@@ -43,48 +39,45 @@ import           "distributed-process" Control.Distributed.Process.Node (initRem
 import           "binary" Data.Binary                                   (decode,
                                                                          encode)
 
-import qualified "dakka" Dakka.Actor                                    as A
-import           "dakka" Dakka.Constraints
+import qualified "dakka" Dakka.Actor.Internal                           as A
 
 
-newtype DistributedActorContext r a v
+newtype DistributedActorContext a v
     = DistributedActorContext
         { runDAC :: (StateT a Process v)
         }
   deriving (Functor, Applicative, Monad)
 
-instance MonadState a (DistributedActorContext r a) where
+instance MonadState a (DistributedActorContext a) where
     state = DistributedActorContext . state
 
-liftProcess :: Process v -> DistributedActorContext r a v
+liftProcess :: Process v -> DistributedActorContext a v
 liftProcess = DistributedActorContext . lift
 
-expectMessage :: ( r `A.IsRootOf` a
-                 , m `A.CanRunAll` r
-                 ) => DistributedActorContext r a ()
-expectMessage = A.behavior =<< Right <$> liftProcess expect
+expectMessage :: forall a. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => DistributedActorContext a ()
+expectMessage = A.behavior =<< Right <$> liftProcess (expect @(A.Message a))
 
-instance ( r `A.IsRootOf` a
-         , m `A.CanRunAll` r
-         ) => A.ActorContext r a (DistributedActorContext r a) where
+instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (DistributedActorContext a) where
     self = A.ActorRef . encode <$> liftProcess getSelfPid
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
 
-instance MonadIO (DistributedActorContext r a) where
+    create' _ = undefined
+
+instance MonadIO (DistributedActorContext a) where
     liftIO = DistributedActorContext . lift . liftIO
 
-staticRunActor :: forall a r. (A.Actor a, DistributedActorContext r a `A.HasAllCapabillities` a) => Closure (Process ())
+staticRunActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Closure (Process ())
 staticRunActor = error "cant run static actor"
 
-runActor :: forall a r. (A.Actor a, DistributedActorContext r a `A.HasAllCapabillities` a) => Process ()
-runActor = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
+runActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Process ()
+runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
   where
     initActor = A.behavior . Left $ A.Created
     awaitMessage = A.behavior . Right =<<liftProcess (expect @(A.Message a))
 
-createActorSystem :: forall a. (A.Actor a, DistributedActorContext a a `A.HasAllCapabillities` a) => Transport -> IO ()
-createActorSystem t = do
+createActorSystem :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => Transport -> proxy a -> IO ()
+createActorSystem t p = do
     node <- newLocalNode t initRemoteTable
-    runProcess node (runActor @a)
+    runProcess node (runActor p)
 
 
