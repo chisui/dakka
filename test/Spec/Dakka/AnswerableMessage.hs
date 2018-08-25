@@ -1,12 +1,14 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE PackageImports      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE PackageImports             #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 module Spec.Dakka.AnswerableMessage ( tests ) where
 
 import           "base" Control.Applicative      (liftA2)
@@ -24,8 +26,10 @@ import           "dakka" Dakka.MockActorContext
 
 
 -- | Actor that always answers "hello"
-data SimpleAnsweringActor = SimpleAnsweringActor
-    deriving (Eq, Show, Generic, Binary, Semigroup, Monoid)
+newtype SimpleAnsweringActor = SimpleAnsweringActor ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor SimpleAnsweringActor where
     type Message SimpleAnsweringActor = AnswerableMessage String
     behavior = \case
@@ -33,8 +37,10 @@ instance Actor SimpleAnsweringActor where
         _ -> noop
 
 -- | Actor that creates a SimpleAnsweringActor on creation and asks it a question
-data SimpleAskingActor = SimpleAskingActor
-    deriving (Eq, Show, Generic, Binary, Semigroup, Monoid)
+newtype SimpleAskingActor = SimpleAskingActor ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor SimpleAskingActor where
     type Message SimpleAskingActor = String
     type Creates SimpleAskingActor = '[SimpleAnsweringActor]

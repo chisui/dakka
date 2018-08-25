@@ -33,9 +33,9 @@ tests = testGroup "Dakka.MockActorContext"
     [ testGroup "SystemMessage"
         [ testGroup "Show"
             [ testCase "Creates <<TrivialActor>>@\"id\"" $
-                show (Creates (ActorRef @TrivialActor "id")) @=? "Creates <<TrivialActor>>@\"id\""
+                show (Creates (ActorRef @TrivialActor "id")) @=? "Creates (ActorRef <<TrivialActor>>@\"id\")"
             , testCase "Creates <<GenericActor Int>>" $
-                show (Creates (ActorRef @(GenericActor Int) "id")) @=? "Creates <<GenericActor Int>>@\"id\""
+                show (Creates (ActorRef @(GenericActor Int) "id")) @=? "Creates (ActorRef <<GenericActor Int>>@\"id\")"
             , testCase "Send {to = (ctorRef <<TrivialActor>>@\"\"), msg = ()}" $
                 show (Send (ActorRef @TrivialActor mempty) ())
                     @=? "Send {to = (ActorRef <<TrivialActor>>@\"\"), msg = ()}"
@@ -54,7 +54,7 @@ tests = testGroup "Dakka.MockActorContext"
             , testGroup "create"
                 [ testCase "returns new path" $
                     evalMock' @CreatesActor (create @TrivialActor)
-                        @=? ActorRef "0"
+                        @=? ActorRef "1"
                 , testCase "fires Create message" $
                     snd (execMock' @CreatesActor (create @TrivialActor)) @=? [Left (Creates (ActorRef @TrivialActor "1"))]
                 ]

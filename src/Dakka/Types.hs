@@ -1,12 +1,17 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DefaultSignatures   #-}
-{-# LANGUAGE ExplicitNamespaces  #-}
-{-# LANGUAGE PackageImports      #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE Safe                #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeInType          #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE ExplicitNamespaces    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PackageImports        #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE Safe                  #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeInType            #-}
+{-# LANGUAGE TypeOperators         #-}
 module Dakka.Types
     ( showsType
     , (=~=)
@@ -19,10 +24,11 @@ import           "base" Data.Kind     (type (*))
 import           "base" Data.Proxy    (Proxy (..))
 import           "base" Data.Typeable (Typeable, cast, typeRep)
 
+
 showsType :: forall a. Typeable a => ShowS
 showsType = showString "<<"
           . shows (typeRep (Proxy @a))
-          . showString ">>"
+         . showString ">>"
 
 
 (=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool
