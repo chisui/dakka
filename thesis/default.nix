@@ -1,7 +1,14 @@
+{ nixpkgsVersion ? builtins.fromJSON (builtins.readFile ../nixpkgs-version.json)
+, nixpkgs ? builtins.fetchTarball {
+    inherit (nixpkgsVersion) sha256;
+    url = "https://github.com/NixOS/nixpkgs/archive/${nixpkgsVersion.rev}.tar.gz";
+  }
+}:
+
 let
   thesis = book: 
 
-    with import <nixpkgs> {};
+    with import nixpkgs {};
 
     (import ./thesis.nix) {
       inherit book pandoc;
