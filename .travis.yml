@@ -2,14 +2,13 @@ language: nix
 script:
 - nix-build
 - nix-build thesis
-sudo: true
 after_success: |
   if [ -n "$GITHUB_API_KEY" ]; then
     cd "$TRAVIS_BUILD_DIR"
     git clone --depth 1 -b gh-pages https://github.com/chisui/dakka web
     cd web
     cp -f $TRAVIS_BUILD_DIR/result thesis.pdf
-    git add .
+    git add ./thesis.pdf
     git -c user.name='travis' -c user.email='travis' commit -m "travis autoupdate"
     git push -q https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka &2>/dev/null
     cd "$TRAVIS_BUILD_DIR"
