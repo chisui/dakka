@@ -2,6 +2,7 @@ language: nix
 script:
 - nix-build
 - nix-build thesis
+sudo: true
 after_success: |
   if [ -n "$GITHUB_API_KEY" ]; then
     cd "$TRAVIS_BUILD_DIR"
