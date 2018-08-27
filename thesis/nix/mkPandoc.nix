@@ -34,6 +34,7 @@
 
 with builtins; 
 let
+  # This is a hack but it should work all of the time
   isDir = src != documentFile;
   customTexlive = if to != "latex" && match "^.*\\.pdf$" name == null
     then [] # don't build it if we don't need it
