@@ -4,9 +4,9 @@
     url = "https://github.com/NixOS/nixpkgs/archive/${nixpkgsVersion.rev}.tar.gz";
   }
 , pkgs ? import nixpkgs {}
-, mkPandoc ? import ./mkPandoc.nix { inherit pkgs; }
-, template ? import ./eisvogel.latex.nix { inherit pkgs; }
-, csl ? import ./journal-of-computer-information-systems.csl.nix { inherit pkgs; }
+, mkPandoc ? import ./nix/mkPandoc.nix { inherit pkgs; }
+, template ? import ./nix/eisvogel.latex.nix { inherit pkgs; }
+, csl ? import ./nix/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
 , pandoc-citeproc ? pkgs.haskellPackages.pandoc-citeproc
 }:
 mkPandoc {
