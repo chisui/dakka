@@ -25,34 +25,11 @@ I want to create an actor framework for Haskell that leverages the typesystem to
 
 Runtime components of this actor framework should be serializable if at all possible to provide. Serializeability is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can sore the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
 
-# Technical considerations
+## Result
 
-## Language choice
+# Fundamentals
 
-Even though the usage of Haskell was a hard requirement from the start I will demonstrate why it is arguably the best choice as well.
-
-Akka is written in Scala which is a multi paradigm language with a heavy functional leaning mostly running on the Java Virtual Machine (JVM). Scala tries to aid integration with existing code written that runs on the JVM. Since most of the code written for the JVM is written in Java Scala has to integrate well with its imperative, object oriented nature. Haskell in contrast does not compromises its purely functional features for integration purposes. Using a purely functional language we can rely more heavily on the typesystem which is essentially a prerequisite for dependent typing.
-
-Haskell is the most widely used language that facilitates dependent typing. Scala also has support for dependent typing but not being purely functional somewhat diminishes that fact. There are other purely functional languages like `Agda` and `Idris` that support dependent typing but they have limiting factors that let Haskell still be the best choice. 
-
-- `Agda` is rarely used as an actual runtime system but rather as a proof assistant, so creating a real world, distributed system with it is not feasible.
-- `Idris` would be a good fit for dependent typing, an even better one than Haskell especially since dependent types are supported natively instead through language extension. The language itself seems to be a little immature at the current time though, the library ecosystem especially is extremely sparse.
-
-Haskell may not have native depended types but they are supported. Being able to rely on a vast number of existing libraries is a huge point in Haskells favor. Especially the `cloud-haskell` platform is extremely useful. In addition to implementing a form of actor framework itself it eases the creation of distributed systems immensely. Most of the heavy lifting on the network and operations side can be done through `cloud-haskell`.
-
-Another concern is my knowledge of other languages. I already have extensive knowledge of Haskell and many of it's more advanced concepts through my bachelor's project, TA work in PI3 and private experience. Although this is not the main concern it is another point in Haskells favor.
-
-## Build tool
-
-There are several build tools and build tool combinations for Haskell that are commonly used. The main one is `cabal` which is essentially required for any kind of Haskell development. `cabal` provides a package manager and takes care of linking packages while compiling. The package format that `cabal` uses is the most widely used way of sharing code in the Haskell community. There are wrappers for `cabal` that provide additional features and help organize dependencies. It is highly recommended to use one of those wrappers since using cabal without one can be very cumbersome. One of the main issues of cabal is that it installs all dependencies of projects globally. When working with multiple Haskell projects this will inevitably lead to conflicts and will land you in the so called *cabal hell*. There were attempts to mitigate these issues in cabal directly but these are cumbersome (sandboxes) to use or aren't finished yet (cabal new-build).
-
-The most widely that is used most often is `stack`. It's main goal is to provide reproducible builds for Haskell projects. It provides a good way of managing dependencies and Haskell projects. It works by bundling a GHC with a set of package versions that should all work with one another.
-
-Another wrapper is `nix`. This build tool isn't Haskell specific though, but it lends itself to Haskell development. Nix calls itself a *Purely Functional Package Manager*. Like stack it's main goal is providing reproducible builds. It goes far further than stack in this regard though. It sandboxes the build environment as hard as possible. This goes so far as disabling network connections while building and stripping change dates from files to ensure that a build is performed in the same environment.
-
-If nix can hold what it promises it would be the best build tool period. So for this project I elected nix as the main build tool. I will try to use it for everything I can from building the library itself to typesetting this very text. This will also be my first big nix project. There is also a Linux distribution that uses nix not only as it's default package manager but to build the entire system and it's configuration. I will be using this distribution for development as well.
-
-# Prior art
+## Actors
 
 ## Akka
 
@@ -64,11 +41,15 @@ Since Erlang-style concurrency is implemented using the actor model Cloud Haskel
 
 Unfortunately Cloud Haskell has to be somewhat opinionated since some features it provides wouldn't be possible otherwise. The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. Cloud Haskell solves this through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
 
-# Implementation
+## Dependent Typing
 
-In the course of implementation we assume that several language extensions are enabled. When basic extensions like `FlextibleContexts`, `MultiParamTypeClasses` or `PackageImports` or those that only provide syntactic sugar are used it wont be mentioned in the text. If the extension is significant for the code to work it will be mentioned. To take a look at which extensions where used you can run the following command inside of the `src` directory.
+## Haskell Language extensions
+
+In the course of implementation we assume that several language extensions are enabled. It is assumed that the reader has a basic understanding of Haskell language extensions. 
 
     grep -Phore "(?<=LANGUAGE )\w+" | sort -u
+
+# Implementation
 
 ## Actor
 
