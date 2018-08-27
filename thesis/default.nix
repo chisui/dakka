@@ -7,7 +7,8 @@
 mkPandoc {
   name         = "dakka-thesis.pdf";
   version      = "0.2.0";
-  src          = ./main.md;
+  src          = ./.;
+  documentFile = ./main.md;
   bibliography = ./bibliography.bib;
   filters      = [ pandoc-citeproc ];
   toc = true;

@@ -5,6 +5,7 @@
 , mkDerivation ? pkgs.stdenv.mkDerivation
 }:
 { name, version, src
+, documentFile ? src
 # additional build inputs
 , buildInputs ? []
 # additional texlive packages passed to texlive.combine
@@ -33,6 +34,7 @@
 
 with builtins; 
 let
+  isDir = src != documentFile;
   customTexlive = if to != "latex" && match "^.*\\.pdf$" name == null
     then [] # don't build it if we don't need it
     else [(
@@ -64,15 +66,20 @@ let
       ++ map (d: "--filter ${toFilterName d}") filters
       ++ additionalPandocArgs;
 
-in mkDerivation {
-  inherit name version src;
+  mkDrvArgs = {
+    inherit name version src;
 
-  buildInputs = [ pandoc ] ++ buildInputs ++ filters ++ customTexlive;
+    buildInputs = [ pandoc ] ++ buildInputs ++ filters ++ customTexlive;
 
-  unpackPhase = ":";
-  configurePhase = ":";
-  buildPhase = "pandoc ${src} ${concatStringsSep " " pandocArgs} -o $out";
-  installPhase = ":";
-  fixupPhase = ":";
-}
+    configurePhase = ":";
+    buildPhase = "pandoc ${documentFile} ${concatStringsSep " " pandocArgs} -o $out";
+    installPhase = ":";
+    fixupPhase = ":";
+  } // (
+    # can't unpack single file
+    if isDir
+      then {} 
+      else { unpackPhase = ":"; }
+  );
+in mkDerivation mkDrvArgs
 
