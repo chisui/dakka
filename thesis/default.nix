@@ -1,12 +1,7 @@
-{ nixpkgsVersion ? builtins.fromJSON (builtins.readFile ../nixpkgs-version.json)
-, nixpkgs ? builtins.fetchTarball {
-    inherit (nixpkgsVersion) sha256;
-    url = "https://github.com/NixOS/nixpkgs/archive/${nixpkgsVersion.rev}.tar.gz";
-  }
-, pkgs ? import nixpkgs {}
+{ pkgs     ? import ../nixpkgs.pinned.nix 
 , mkPandoc ? import ./nix/mkPandoc.nix { inherit pkgs; }
-, template ? import ./nix/eisvogel.latex.nix { inherit pkgs; }
-, csl ? import ./nix/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
+, eisvogel ? import ./nix/eisvogel.latex.nix { inherit pkgs; }
+, jcis-csl ? import ./nix/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
 , pandoc-citeproc ? pkgs.haskellPackages.pandoc-citeproc
 }:
 mkPandoc {
@@ -19,5 +14,6 @@ mkPandoc {
   listings = true;
   top-level-division = "section";
   number-sections = true;
-  inherit csl template;
+  template = eisvogel;
+  csl = jcis-csl;
 }
