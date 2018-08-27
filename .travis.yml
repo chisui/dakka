@@ -8,7 +8,6 @@ after_success: |
     cd "$TRAVIS_BUILD_DIR"
     git clone --depth 1 -b gh-pages https://github.com/chisui/dakka web
     cd web
-    git checkout gh-pages
     cp -f $TRAVIS_BUILD_DIR/result thesis.pdf
     git add .
     git -c user.name='travis' -c user.email='travis' commit -m "travis autoupdate"
