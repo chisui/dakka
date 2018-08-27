@@ -51,8 +51,8 @@ class    HasAllCapabillities' m cs
 instance HasAllCapabillities' m '[]
 instance (HasAllCapabillities m a, HasAllCapabillities' m as) => HasAllCapabillities' m (a ': as)
 
-class    (m `CanRunAll'` Creates a) => CanRunAll m a
-instance (m `CanRunAll'` Creates a) => CanRunAll m a
+class    (m `CanRunAll'` Creates a, m `HasAllCapabillities` a) => CanRunAll m a
+instance (m `CanRunAll'` Creates a, m `HasAllCapabillities` a) => CanRunAll m a
 
 class    CanRunAll' m l
 instance (CanRunAll' m as, CanRunAll m a) => CanRunAll' m (a ': as)

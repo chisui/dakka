@@ -1,17 +1,21 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE PackageImports      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE PackageImports             #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 module Main (main) where
 
 import           "base" Control.Applicative                    (liftA2)
 import           "base" Control.Monad                          (join)
 import           "base" Control.Monad.IO.Class                 (MonadIO, liftIO)
+import           "base" Data.Proxy                             (Proxy (..))
 import           "base" GHC.Generics                           (Generic)
 
 import           "mtl" Control.Monad.State.Class               (MonadState, get)
@@ -23,27 +27,30 @@ import           "binary" Data.Binary                          (Binary)
 import           "dakka" Dakka.Actor                           (Actor, ActorRef,
                                                                 Capabillities,
                                                                 Creates,
-                                                                HasStartState,
                                                                 Message,
                                                                 RootActor,
                                                                 Signal (Created),
                                                                 behavior,
-                                                                create,
-                                                                onMessage,
-                                                                onSignal, self,
-                                                                (!))
+                                                                create, noop,
+                                                                self, (!))
 
 import           Dakka.Distributed                             (createActorSystem)
 
 
 -- Trivial Actors
 
-data ActorA = ActorA deriving ( Eq, Show, Generic, Binary, HasStartState )
+newtype ActorA = ActorA ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor ActorA where
     type Capabillities ActorA = '[MonadIO]
     behavior = logMessage
 
-data ActorB = ActorB deriving ( Eq, Show, Generic, Binary, HasStartState )
+newtype ActorB = ActorB ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor ActorB where
     type Capabillities ActorB = '[MonadIO]
     behavior = logMessage
@@ -55,26 +62,35 @@ logMessage b = do
 
 -- Simple reference passing actors
 
-data SimpleReciever = SimpleReciever deriving ( Eq, Show, Generic, Binary, HasStartState )
+newtype SimpleReciever = SimpleReciever ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor SimpleReciever where
     type Message SimpleReciever = String
     type Creates SimpleReciever = '[SimpleSender]
     type Capabillities SimpleReciever = '[MonadIO]
 
-    onSignal Created = join $ liftA2 (!) (create @SimpleSender) self
-    onSignal _       = pure ()
-    onMessage = logMessage
+    behavior = \case
+        (Left Created) -> join $ liftA2 (!) (create @SimpleSender) self
+        (Right m) -> logMessage m
+        _ -> noop
 
-data SimpleSender = SimpleSender deriving ( Eq, Show, Generic, Binary, HasStartState )
+newtype SimpleSender = SimpleSender ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor SimpleSender where
     type Message SimpleSender = ActorRef SimpleReciever
-    onMessage = (! "msg")
-    onSignal _ = pure ()
+
+    behavior = \case
+        (Right m) -> m ! "msg"
+        _ -> noop
 
 -- Main
 
 main :: IO ()
 main = do
     Right t <- createTransport "127.0.0.1" "10501" ("localhost",) defaultTCPParameters
-    createActorSystem @(RootActor '[ ActorA, ActorB ]) t
+    createActorSystem t (Proxy @(RootActor '[ ActorA, ActorB ]))
 

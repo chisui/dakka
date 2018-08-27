@@ -18,7 +18,6 @@
 module Dakka.MockActorContext where
 
 import           "base" Data.Maybe                              (fromMaybe)
-import           "base" Data.Typeable                           (typeRep)
 
 import           "containers" Data.Tree                         (Tree (..))
 
@@ -62,9 +61,8 @@ type SystemMessage = Either Creates Send
 
 instance Show Creates where
     showsPrec d (Creates p)     = showParen (d > 10)
-                                $ showString "Creates <<"
-                                . shows (typeRep p)
-                                . showString ">>"
+                                $ showString "Creates "
+                                . showsPrec 11 p
 instance Show Send where
     showsPrec d (Send to' msg') = showParen (d > 10)
                                 $ showString "Send {to = "

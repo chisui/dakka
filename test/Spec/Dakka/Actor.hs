@@ -159,16 +159,16 @@ tests = testGroup "Dakka.Actor"
             ]
         , testProperty "Show" $
             \ (s :: SomeSignal) -> case unwrapSignal s of
-                Obit refA a  -> show (unwrapSignal s) === "Obit " ++ show refA ++ " " ++ show a
-                Created -> show (unwrapSignal s) === "Created <<CreatesActor>>"
+                Obit refA a  -> show (unwrapSignal s) === "Obit (" ++ show refA ++ ") (" ++ show a ++ ")"
+                Created      -> show (unwrapSignal s) === "Created"
         ]
     , testGroup "RootActor"
         [ testMonoid @SomeRootActor
         , testGroup "Show"
             [ testCase "RootActor <<[TrivialActor,PlainMessageActor]>>" $
-                show (mempty @SomeRootActor) @=? "RootActor <<[TrivialActor,PlainMessageActor]>>"
+                show (mempty @SomeRootActor) @=? "RootActor <<': * TrivialActor (': * PlainMessageActor ('[] *))>>"
             , testCase "RootActor <<[]>>" $
-                show (mempty @(RootActor '[])) @=? "RootActor <<[]>>"
+                show (mempty @(RootActor '[])) @=? "RootActor <<'[] *>>"
             ]
         , testGroup "behavior"
             [ testCase "run Created $ RootActor '[TrivialActor, PlainMessageActor]" $ do

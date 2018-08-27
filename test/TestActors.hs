@@ -1,14 +1,16 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PackageImports        #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE PackageImports             #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 module TestActors where
 
 import           "base" Control.Applicative      (Const (..))
@@ -30,8 +32,9 @@ import           "binary" Data.Binary            (Binary)
 
 -- | Actor with all bells and whistles.
 newtype TestActor = TestActor
-    { i :: Int
-    } deriving (Show, Eq, Generic, Binary)
+    { i :: Int }
+    deriving stock    (Eq, Show, Generic)
+    deriving anyclass (Binary)
 
 instance Semigroup TestActor where
     (TestActor a) <> (TestActor b) = TestActor (a + b)
@@ -107,16 +110,22 @@ instance Actor Turnstile where
 
 -- | Actor with custom message type.
 -- This one also communicates with another actor and expects a response.
-newtype Msg = Msg String deriving (Show, Eq, Generic, Binary)
+newtype Msg = Msg String
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Convertible String Msg where
     convert = Msg
 
-data OtherActor = OtherActor deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
+newtype OtherActor = OtherActor ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor OtherActor where
     type Message OtherActor = Msg
     type Creates OtherActor = '[WithRef]
     behavior = \case
-        (Right m) -> do
+        (Right _) -> do
             p <- create @WithRef
             a <- self
             p ! answerableMessage a
@@ -125,7 +134,10 @@ instance Actor OtherActor where
 
 
 -- | Actor that handles references to other Actors
-data WithRef = WithRef deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
+newtype WithRef = WithRef ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor WithRef where
     type Message WithRef = AnswerableMessage String
     behavior = \case
@@ -133,14 +145,20 @@ instance Actor WithRef where
         _ -> noop
 
 
-data Sender = Sender deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
+newtype Sender = Sender ()
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor Sender where
     type Message Sender = ActorRef Reciever
     behavior = \case
         (Right a) -> a ! "hello"
         _ -> noop
 
-newtype Reciever = Reciever (Maybe String) deriving (Show, Eq, Generic, Binary, Semigroup, Monoid)
+newtype Reciever = Reciever (Maybe String)
+    deriving stock    (Eq, Show, Generic)
+    deriving newtype  (Semigroup, Monoid)
+    deriving anyclass (Binary)
 instance Actor Reciever where
     type Message Reciever = String
     type Creates Reciever = '[Sender]
