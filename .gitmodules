@@ -1,3 +1,3 @@
 [submodule "thesis/nix-mkPandoc"]
 	path = thesis/nix-mkPandoc
-	url = git@github.com:chisui/nix-mkPandoc.git
+    url = https://github.com/chisui/nix-mkPandoc.git
