@@ -13,12 +13,17 @@ mkPandoc {
   documentFile = ./main.md;
   bibliography = ./bibliography.bib;
   filters      = [ pandoc-citeproc ];
-  toc = true;
+  toc          = true;
+  template = eisvogel;
+  csl      = jcis-csl;
   listings = true;
   top-level-division = "section";
   number-sections = true;
-  template = eisvogel;
-  csl = jcis-csl;
-  metadatas = { inherit date; };
+  variables = {
+    inherit date;
+    geometry     = "left=3.5cm, right=2.5cm";
+    toc-own-page = true;
+    titlepage    = true;
+  };
   inherit verbose;
 }

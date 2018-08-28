@@ -1,15 +1,11 @@
 ---
 title: "Dakka: A dependently typed Actor framework for Haskell" 
-author:
-- Philipp Dargel
+author: Philipp Dargel
 tags:
 - Bachelor thesis
 - Haskell
 - Actor
 - Dependent types
-geometry: "left=3.5cm, right=2.5cm"
-titlepage: yes
-toc-own-page: yes
 ---
 
 # Introduction
@@ -29,6 +25,12 @@ Runtime components of this actor framework should be serializable if at all poss
 # Fundamentals
 
 ## Actors
+
+Actors in the traditional actor model may only perform one of three actions in response to receiving a message:
+
+1. Send a finite number of messages to other actors.
+2. Create a finite number of new actors.
+3. Designate the behavior to be used for the next message it receives.
 
 ## Akka
 
@@ -51,12 +53,6 @@ In the course of implementation we assume that several language extensions are e
 # Implementation
 
 ## Actor
-
-Actors in the traditional actor model may only perform one of three actions in response to receiving a message:
-
-1. Send a finite number of messages to other actors.
-2. Create a finite number of new actors.
-3. Designate the behavior to be used for the next message it receives.
 
 Since akka is not written in a pure functional language each actor can also invoke any other piece of code. This implicit capability very useful for defining real world systems. So we have to provide ways to doing something like this as well if we want to use this framework in a real world situation. Invoking any piece of code also includes managing the actor system itself. For example stopping it all together, which also turns out to be very useful. 
 
@@ -541,7 +537,5 @@ instance Actor a => MonadState a (MockActorContext a) where
 ## Dependent types in Haskell
 
 ## Cloud Haskell
-
-## Nix
 
 # Bibliography
