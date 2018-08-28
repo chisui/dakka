@@ -1,7 +1,7 @@
 { pkgs     ? import ../nixpkgs.pinned.nix 
-, mkPandoc ? import ./nix/mkPandoc.nix { inherit pkgs; }
-, eisvogel ? import ./nix/eisvogel.latex.nix { inherit pkgs; }
-, jcis-csl ? import ./nix/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
+, mkPandoc ? import ./nix-mkPandoc/mkPandoc.nix { inherit pkgs; }
+, eisvogel ? import ./nix-mkPandoc/eisvogel.latex.nix { inherit pkgs; }
+, jcis-csl ? import ./nix-mkPandoc/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
 , pandoc-citeproc ? pkgs.haskellPackages.pandoc-citeproc
 , date ? "2018-??-??"
 , verbose ? false
