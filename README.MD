@@ -13,9 +13,9 @@ A dependently typed actor framework for haskell.
 
     nix-build thesis
 
-You can also build a book version with
+To include the current date run:
 
-    nix-build thesis -A book
+    nix-build thesis --arg date "$(date +\"%Y-%m-%d\")"
 
 Check out a build pdf version of the current master version [here](https://chisui.github.io/dakka/thesis.pdf).
 
