@@ -2,7 +2,6 @@
 title: "Dakka: A dependently typed Actor framework for Haskell" 
 author:
 - Philipp Dargel
-date: 2018-??-??
 tags:
 - Bachelor thesis
 - Haskell

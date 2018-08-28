@@ -20,6 +20,14 @@
 # The template has to point to a latex file and has to list all required
 # texlive packages in an attribute called `texlivePackages`.
 , template ? null
+# Overrides for yaml metadata. Each non null entry in the record will result in a
+# `--metadata=<KEY>:<VALUE>` argument. Boolean entries will result in a
+# `--metadata=<KEY>` flag if the value is `true` otherwise it will be absent
+, metadatas ? {}
+# Template variables. Each entry in the record will result in a
+# `--variable=<KEY>:<VALUE>` argument. Boolean entries will result in a
+# `--variable=<KEY>` flag if the value is `true` otherwise it will be absent
+, variables ? {}
 # one to one mapping for pandoc arguments
 , from ? null
 , to ? null
@@ -57,13 +65,23 @@ let
       mkArg = name:
         let a = args.${name} or null;
         in if a == true                then ["--${name}"]
-        else if !isBool a && a != null then ["--${name} ${a}"]
+        else if !isBool a && a != null then ["--${name} ${toJSON a}"]
         else [];
+      mkArgs = l: concatLists (map mkArg l);
+      mkVars = name: vars: 
+        let mkVar = attr:
+          let a = vars.${attr};
+          in if a == true                then ["--${name}=${attr}"]
+          else if !isBool a && a != null then ["--${name}=${attr}:${toJSON a}"]
+          else [];
+        in concatLists (map mkVar (attrNames vars));
       toFilterName = f: f.pandocFilterName or (parseDrvName f.name).name;
-    in concatLists (map mkArg [ 
+    in mkArgs [ 
         "from" "to" "bibliography" "csl" "template" "top-level-division"
         "listings" "toc" "number-sections" "verbose"
-      ])
+      ]
+      ++ mkVars "metadata" metadatas
+      ++ mkVars "variable" variables
       ++ map (d: "--filter ${toFilterName d}") filters
       ++ additionalPandocArgs;
 
