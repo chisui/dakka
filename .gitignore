@@ -1,6 +1,8 @@
 .stack-work/
 *.tix
 *.pdf
+*.o
+*.hi
 result
 log
 dist/

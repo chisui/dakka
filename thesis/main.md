@@ -24,15 +24,19 @@ Runtime components of this actor framework should be serializable if at all poss
 
 # Fundamentals
 
-## Actors
+## Actor Model
 
-Actors in the traditional actor model may only perform one of three actions in response to receiving a message:
+The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an actor. A finite set of Actors that can communicate which each other is an Actor System. Actors can be sent messages and are characterized by the way they respond to these Messages. In Response to a message an Actor may:
 
-1. Send a finite number of messages to other actors.
-2. Create a finite number of new actors.
+1. Send a finite number of messages to other actors inside the same Actor System.
+2. Add a finite number of new Actors to the Actor System.
 3. Designate the behavior to be used for the next message it receives.
 
+The Actor Model keeps these definitions very abstract. As a result of that aspect like identifying actors inside an Actor System and message ordering become implementation details.
+
 ## Akka
+
+Akka is an implementation of the Actor Model written in Scala for the JVM. In akka some design decisions where made while implementing the Actor Model that turned out to be very useful. In particular it enforces a strict order on messages. For every pair of actors in the Actor System it is ensured that messages from one of those Actors to the other are handled in the same order they where sent. 
 
 ## Cloud Haskell
 
@@ -44,11 +48,76 @@ Unfortunately Cloud Haskell has to be somewhat opinionated since some features i
 
 ## Dependent Typing
 
-## Haskell Language extensions
+A dependent type is a type that depends on a value. Dependent types are are a way to express relationships between values inside of a typesystem. The canonic example for dependent types is a length indexed vector. A length indexed vector is a list which length is derivable from its type. This can be defined as a Haskell GADT:
 
-In the course of implementation we assume that several language extensions are enabled. It is assumed that the reader has a basic understanding of Haskell language extensions. 
+```haskell
+data Vec (l :: Nat) (a :: *) where
+    VNil  :: Vec 0 a
+    VCons :: a -> Vec l a -> Vec (l + 1) a
+```
 
-    grep -Phore "(?<=LANGUAGE )\w+" | sort -u
+Where `Nat` is a kind that represents positive integers as types. This example illustrates one of the core properties of dependent types: Values and types are interchangeable, that means `0` and `l + 1` are types. In Haskell this behavior can be enabled using Language extensions.  
+
+## Haskell Language features 
+
+Modern Haskell development involves many language features that are not present in the base language of *Haskell2010*. These features have to explicitly be enabled by enabling language extensions. Especially working with dependent types and using more advanced features of Haskells typesystem require many of these language extensions. Language extensions are enabled using `LANGUAGE` pragmas at the beginning of the file for which the extension should be enabled. 
+
+- `DataKinds`: Allows types to be promoted to kinds and values to types. 
+- `TypeFamilies`: Adds the ability to define type and data families. A type family can be thought of as a function on types.
+- `PolyKinds`: Allows mixing different kinds. For example `k` in `l :: [k]` could normally only be of kind `*` but with `PolyKinds` it may be any kind.
+
+These two extensions are the foundation for dependent typing in Haskell. This enables the definition of `not` on types of kind `Bool`:
+
+```haskell
+type family Not (a :: Bool) :: Bool where
+    Not 'True  = 'False
+    Not 'False = 'True
+```
+
+Or even `elem`:
+
+```haskell
+type family Elem (e :: k) (l :: [k]) :: Bool where
+    Elem e (e ': as) = 'True
+    Elem e (a ': as) = Elem e as
+    Elem e '[]       = 'False
+```
+
+### Heterogenous collections
+
+Another example of the usage of some of these extensions are heterogeneous lists. That is lists that can hold values of different types at once. This can be achieved by defining a GADT `HList` that is parametrized by a list of types such that each element of `HList` has a corresponding entry in the list of types:
+
+```haskell
+data HList (l :: [*]) where
+    HNil  :: HList '[]
+    HCons :: a -> HList as -> HList (a ': as)
+infixr 5 `HCons`
+```
+
+With this we can now create Lists with where each element is of a different type:
+
+```haskell
+l :: HList '[Int, String, Bool]
+l = 42 `HCons` "Hello World" `HCons` False `HCons` HNil
+```
+
+It is also possible to create a lookup function for elements of a given type that is only defined if the list contains an element of that type:
+
+```haskell
+class HElem e (l :: [*]) where
+    hElem :: HList l -> e
+
+instance {-# Overlaps #-} HElem e (e ': as) where
+    hElem (HCons e _) = e
+instance {-# Overlappable #-} HElem e as => HElem e (a ': as) where
+    hElem (HCons _ as) = hElem as
+```
+
+Unlike the previous example here a type class is used instead of a type family. Matching rules differ between type families and type classes. Type families allow Non-Linear Patterns, that is the same variable may occure multiple times inside of the pattern, but type classes don't. Type classes are matched exclusively by structure. As a result both instance declarations of `HElem` look the same to compiler. Constraints are only checked after the compiler already commited to a given declaration. In this context `HElem e (e ': as)` is equvalent to `(e ~ a) => HElem e (a ': as)`. To prioritize which instance declaration will be chosen by the compiler the instances have to be annotated with overlapping instance pragmas.
+
+### Typeable
+
+In the process of compiling Haskell all type information is removed since the aren't needed at runtime. Type information may be useful at runtime sometimes.
 
 # Implementation
 
@@ -279,7 +348,7 @@ Typefamilies created for this feature are still useful though. They allow type l
 
 #### Implementation specific references
 
-Different implementations of `ActorContext` might want to use different datatypes to refer to actors. Since we don't provide a way for the user to create references themselfs we don't have to expose the implementation of these references. 
+Different implementations of `ActorContext` might want to use different datatypes to refer to actors. Since we don't provide a way for the user to create references themselves we don't have to expose the implementation of these references. 
 
 The most obvious way to achieve this is to associate a given `ActorContext` implementation with a specific reference type. This can be done using an additional type variable on the class, a type family or a data family. Here the data family seems the best choice since it's injective. The injectivity allows us to not only know the reference type from from an `ActorContext` implementation but also the other way round.
 
@@ -323,7 +392,7 @@ This might go a little against our ideal that we want to keep the code as typesa
 
 #### Sending references 
 
-A core feature that is nesseccary for an actor system to effectivly communicate is the abillity to send actor references as messages to other actors.
+A core feature that is necessary for an actor system to effectively communicate is the ability to send actor references as messages to other actors.
 
 The most trivial case would be that the message to actor is an actor reference itself.
 
@@ -333,7 +402,7 @@ instance Actor Sender where
     ...
 ```
 
-This way limits the actor type of the reciever to be a single concrete type though. In particular we have to know the type of the actor (Reciever in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Reciever.
+This way limits the actor type of the receiver to be a single concrete type though. In particular we have to know the type of the actor (Receiver in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Receiver.
 
 
 ```haskell
@@ -342,7 +411,7 @@ instance (Actor a, c a) => Actor (Sender a) where
     ...
 ```
 
-`c` here can take any constraint that the Reciever actor has to fulfill as well. This is more generic but we `a` still represents a concrete type at runtime. The way this is normally done in Haskell is by extracting the commonalities of all Reciever types into a typeclass and ensure that all referenced actors implement that typeclass.
+`c` here can take any constraint that the Receiver actor has to fulfill as well. This is more generic but we `a` still represents a concrete type at runtime. The way this is normally done in Haskell is by extracting the commonalities of all Receiver types into a typeclass and ensure that all referenced actors implement that typeclass.
 
 ```haskell
 class Actor a => Reciever a
@@ -351,7 +420,7 @@ instance Reciever a => Actor (Sender a) where
     ...
 ```
 
-Although this is just a variateion on the previous way since we only consolidated `c` into the `Reciever` class. Unfortunatly we can't use `forall` in constraint contexts (yet; see `QuantifiedConstraints`). To get around this we can create a new message type that encapsulates the constraint like this:
+Although this is just a variation on the previous way since we only consolidated `c` into the `Reciever` class. Unfortunately we can't use `forall` in constraint contexts (yet; see `QuantifiedConstraints`). To get around this we can create a new message type that encapsulates the constraint like this:
 
 ```haskell
 data AnswerableMessage c = forall a. (Actor a, c a) => AnswerableMessage (ActorRef a)
@@ -366,7 +435,7 @@ instance Actor Sender where
     ...
 ```
 
-`Reciever` should not perform longrunning tasks though since that would provide a way to circumvent the actor model somewhat since the task would be performed in the context of the `Sender`. Ideally the class should only provide a way to construct a message the `Reciever` understands from a more generic type. We can express this with a typeclass like this:
+`Reciever` should not perform long running tasks though since that would provide a way to circumvent the actor model somewhat since the task would be performed in the context of the `Sender`. Ideally the class should only provide a way to construct a message the `Reciever` understands from a more generic type. We can express this with a typeclass like this:
 
 ```haskell
 class Actor a => Understands m a where
@@ -382,9 +451,9 @@ instance Actor Sender
         ref ! convert someType
 ```
 
-Solving the problem of sending generic actor references has a huge problem though. Using existential quantification prevents AnswerableMessage from beeing serialized. Serializabillity is a core requrirement for messages though.
+Solving the problem of sending generic actor references has a huge problem though. Using existential quantification prevents `AnswerableMessage` from being serialized. Serializeability is a core requirement for messages though.
 
-I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitraty types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase though. Sending `ActorRef` values directly is the only possible way for now.
+I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitrary types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase though. Sending `ActorRef` values directly is the only possible way for now.
 
 ### Flexibility and Effects
 
@@ -482,7 +551,7 @@ create = tell $ Create (Proxy @b)
 
 # Testing
 
-One of the goals of the actor framework is testabillity of actors written in the framework. The main way that testabillity is achieved is by implementing a special `ActorContext` that provides a way to execute an actors behavior in an controlled environment. The name of this `ActorContext` is `MockActorContext`. `MockActorContext` has to provide implementations for `create`, `send` and `MonadState`. Additionally we need a way to execute a `MockActorContext`. One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
+One of the goals of the actor framework is testability of actors written in the framework. The main way that testability is achieved is by implementing a special `ActorContext` that provides a way to execute an actors behavior in an controlled environment. The name of this `ActorContext` is `MockActorContext`. `MockActorContext` has to provide implementations for `create`, `send` and `MonadState`. Additionally we need a way to execute a `MockActorContext`. One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
 
 ```haskell
 newtype MockActorContext a v = MockActorContext
