@@ -1,13 +1,11 @@
 language: nix
+sudo: true
 script:
-- nix-build
 - |
   nix-build thesis \
     --arg date "$(date +\"%Y-%m-%d\")" \
     --argstr commit "$(curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master)" \
     --argstr sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz)"
-sudo: true
-after_success: |
   if [ -n "$GITHUB_API_KEY" ]; then
     cd "$TRAVIS_BUILD_DIR"
     git clone --depth 1 -b gh-pages https://github.com/chisui/dakka web
@@ -18,3 +16,4 @@ after_success: |
     git push -q https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka &2>/dev/null
     cd "$TRAVIS_BUILD_DIR"
   fi
+- nix-build
