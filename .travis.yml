@@ -1,10 +1,11 @@
 language: nix
 script:
 - nix-build
-- | nix-build thesis \
-      --arg date "$(date +\"%Y-%m-%d\")" \
-      --arg commit $( curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master | jq '.object.sha') \
-      --arg sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz 2> /dev/null)"
+- |
+  nix-build thesis \
+    --arg date "$(date +\"%Y-%m-%d\")" \
+    --arg commit $( curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master | jq '.object.sha') \
+    --arg sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz 2> /dev/null)"
 sudo: true
 after_success: |
   if [ -n "$GITHUB_API_KEY" ]; then
