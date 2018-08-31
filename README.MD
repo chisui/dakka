@@ -13,7 +13,7 @@ A dependently typed actor framework for haskell.
 
     nix-build thesis
 
-To include the current date and hashes for the current commit run:
+To include the current date and hashes for the current `HEAD` of `master` run:
 
     nix-build thesis \
       --arg date "$(date +\"%Y-%m-%d\")" \
