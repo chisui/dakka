@@ -30,12 +30,12 @@ mkPandoc {
   };
   include-before-body = builtins.toFile "header.tex" ''
     \begin{tabular}{ r l }
-      {\bf Commit:} & \lstinline[language=bash]|${commitHash}| \\
-      {\bf sha256:} & \lstinline[language=bash]|${sha256}| \\
+      {\bf Commit:} & \verb|${commitHash}| \\
+      {\bf sha256:} & \verb|${sha256}| \\
     \end{tabular}
     \\
     To verify the hash compare the sha256 hash with the output of:\\
-    \lstinline[language=bash]{nix-prefetch-url --unpack "https://github.com/chisui/dakka/archive/${commitHash}.tar.gz"}.
+    \lstinline[language=sh]{nix-prefetch-url --unpack "https://github.com/chisui/dakka/archive/${commitHash}.tar.gz"}.
   '';
   inherit verbose; 
 }
