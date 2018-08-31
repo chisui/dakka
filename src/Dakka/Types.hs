@@ -28,7 +28,7 @@ import           "base" Data.Typeable (Typeable, cast, typeRep)
 showsType :: forall a. Typeable a => ShowS
 showsType = showString "<<"
           . shows (typeRep (Proxy @a))
-         . showString ">>"
+          . showString ">>"
 
 
 (=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool

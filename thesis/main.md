@@ -117,7 +117,30 @@ Unlike the previous example here a type class is used instead of a type family. 
 
 ### Typeable
 
-In the process of compiling Haskell all type information is removed since the aren't needed at runtime. Type information may be useful at runtime sometimes.
+In the process of compiling Haskell all type information is removed since the aren't needed at runtime. Type information may be useful at runtime sometimes. If a type is hidden via existential quantification it may be useful to be able to get a `String` representation of the captured type for debug and/or `Show` purposes. Without some way of retrieving type information at runtime it would also be impossible to define an `Eq` instance for data types using existential quantification.
+
+Runtime type information is provided by `Data.Typeable` in Haskell2010. The type class `Typeable` provides a single function `typeRep# :: TypeRep a` where `TypeRep a` is a representation of the type `a`. `typeRep#` and `TypeRep a` are only used internally though. The module `Data.Typeable` exports ways to leverage this functionallity. GHC will derive an instance of `Data.Typeable` for every data type, type class and promoted data constructors automatically[@GHC-typeable]. Manually defining an instance of `Data.Typeable` will cause an error to ensure that the type representation is valid. 
+
+#### Showing a type
+
+Since `TypeRep` implements `Show` we can print any type at runtime. The `Show` implementation of `TypeRep` doesn't produce output that is equivalent to the way types are represented in haskell error messages though. This missmatch is partly due to the fact that there is no way to represent type aliases using `TypeRep` and some issues with the `Show` implementation itself[@trac-14341]. 
+
+```haskell
+showsType :: forall a. Typeable a => ShowS
+showsType = showString "<<"
+          . shows (typeRep (Proxy @a))
+          . showString ">>"
+```
+
+#### Dynamic values and type casting
+
+`Typeable` enables the creation of Dynamic values in Haskell. To represent a dynamic value, all we have to do is capture the `Typeable` instance of the given type. Dynamic values are implemented by `Data.Dynmaic` in `base`. To construct a dynamic value `toDyn :: Typeable a => a -> Dynamic` is used. To extract a value `fromDynamic :: Typeable a => Dynmaic -> Maybe a` which only returns a value if the expected type `a` is the same as the captured one. Data extraction is only possible because there are runtime type representations that can be compared.
+
+In the same way values can be extracted from dynamic values it is possible to define a way to conditionally cast a value of one type to another for as long as those two types are the same where it is only known at runtime if that is the case:
+
+```haskell
+cast :: forall a b. (Typeable a, Typeable b) => a -> Maybe b
+```
 
 # Implementation
 
