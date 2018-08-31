@@ -36,7 +36,23 @@ The Actor Model keeps these definitions very abstract. As a result of that aspec
 
 ## Akka
 
-Akka is an implementation of the Actor Model written in Scala for the JVM. In akka some design decisions where made while implementing the Actor Model that turned out to be very useful. In particular it enforces a strict order on messages. For every pair of actors in the Actor System it is ensured that messages from one of those Actors to the other are handled in the same order they where sent. 
+Akka is an implementation of the Actor Model written in Scala for the JVM. In akka some design decisions where made while implementing the Actor Model that turned out to be very useful. 
+
+In Akka Actors are represented as classes that extend a common base class. When an actor is created a new instance of the actors class is created. The actor classs' constructor may require additional arguments. Constructor arguments have to be supplied when an actor is created. Actor classes have to provide an initial `revice` property which represents the actors inital behavior. The type of the recieve property is `PartialFunction[Any, Unit]` which means it's a possibly partial function that takes arguments of any type and returns a unit. An actor class may have fields which represent internal state. In addition to fields there is the `become` method which provides a way to switch the behavior of the current actor. Inside of its behavior the actor has access to a reference to itself as well as to the sender of the currently handled message. Inside an actor system messages of any type can be sent to any reference. There is a special message called `PoisonPill` which will terminate an actor when recieved. When an actor terminates it's designated supervisor is notified. Normally an actors supervisor is the actor that created it.[@Akka-docu]
+
+In addition to these foundational actors Akka provides more control and features for actors like control over actors mailboxes[@Akka-docu-mailboxes], message routing[@Akka-docu-routing], clustering of Actor Systems[@Akka-docu-cluster] and more.
+
+The way Akka is implemented lets it differ from the traditional Actor Model in some cases and extend it:
+
+- Actors have two kinds of state: The internal state of the Actor class instance and the current `Recieve` behavior.
+- A strict order on messages is enforced. For every pair of actors in the Actor System it is ensured that messages from one of those Actors to the other are handled in the same order they where sent. A notable exception to this is the `Kill` message which terminates an actor as soon as possible.
+- Actors are named when they are created.
+- Each actor has access to the current actor system via the `context` property. This gives any actor access to every other actor in the current actor system. Actors can be enumerated or searched for by path.
+- When an actor terminates a message is sent to it's supervisor(s).
+- Since Scala isn't a pure language actors can perform arbitrary operations in response to their behavior.
+- Akka expects messages to be immutable.
+
+There is also an alternative package to the described actor base package which adds type information to actors.[@Akka-docu-typed]
 
 ## Cloud Haskell
 
