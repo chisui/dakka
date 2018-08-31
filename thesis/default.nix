@@ -29,7 +29,7 @@ mkPandoc.mkPandoc {
     toc-own-page = true;
     titlepage    = true;
   };
-  include-before-body = if commitHash == null || sha256 == null then null else (builtins.toFile "header.tex" ''
+  include-before-body = if commitHash == null || sha256 == null then null else (builtins.toFile "dakka-thesis-hashes.tex" ''
     \begin{tabular}{ r l }
       {\bf Commit:} & \verb|${commitHash}| \\
       {\bf sha256:} & \verb|${sha256}| \\
