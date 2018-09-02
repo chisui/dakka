@@ -52,7 +52,7 @@ The way Akka is implemented lets it differ from the traditional Actor Model in s
 - Since Scala isn't a pure language actors can perform arbitrary operations in response to their behavior.
 - Akka expects messages to be immutable.
 
-There is also an alternative package to the described actor base package which adds type information to actors.[@Akka-docu-typed]
+There is also an alternative package to the described actor base package which adds type information to actors [@Akka-docu-typed]. The main differences betweene those two packages is that actor references are parametrized by the type of message that the defining actor may handle and actors have to define what kind of message they may recieve.
 
 ## Cloud Haskell
 
