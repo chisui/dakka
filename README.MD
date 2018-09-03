@@ -7,15 +7,15 @@ A dependently typed actor framework for haskell.
 
 ## Build
 
-    nix-build
+    nix build
 
 ## Build thesis
 
-    nix-build thesis
+    nix build -f thesis
 
 To include the current date and hashes for the current `HEAD` of `master` run:
 
-    nix-build thesis \
+    nix build -f thesis \
       --arg date "$(date +\"%Y-%m-%d\")" \
       --argstr commit "$(curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master)" \
       --argstr sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz)"
