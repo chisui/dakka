@@ -2,7 +2,7 @@ language: nix
 sudo: true
 script:
 - |
-  nix-build thesis \
+  nix build -f thesis \
     --arg date "$(date +\"%Y-%m-%d\")" \
     --argstr commit "$(curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master)" \
     --argstr sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz)"
@@ -16,4 +16,4 @@ script:
     git push -q https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka &2>/dev/null
     cd "$TRAVIS_BUILD_DIR"
   fi
-- nix-build
+- nix build
