@@ -30,6 +30,7 @@ mkPandoc.mkPandoc {
     titlepage    = true;
   };
   include-before-body = if commitHash == null || sha256 == null then null else (builtins.toFile "dakka-thesis-hashes.tex" ''
+    \begin{footnotesize}
     \begin{tabular}{ r l }
       {\bf Commit:} & \verb|${commitHash}| \\
       {\bf sha256:} & \verb|${sha256}| \\
@@ -37,8 +38,15 @@ mkPandoc.mkPandoc {
     \\
     To browse the repository at this commit visit \url{https://github.com/chisui/dakka/tree/${commitHash}}.
     \\
-    To verify the hash compare the \verb|sha256| hash with the output of:\\
-    \lstinline[language=sh]{nix-prefetch-url --unpack "https://github.com/chisui/dakka/archive/${commitHash}.tar.gz"}.
+    To verify the hash run:
+    \end{footnotesize}
+    \begin{scriptsize}
+    \begin{verbatim}
+    nix-prefetch-url --unpack \
+      https://github.com/chisui/dakka/archive/${commitHash}.tar.gz \
+      ${sha256}
+    \end{verbatim}
+    \end{scriptsize}
   '');
   inherit verbose; 
 }
