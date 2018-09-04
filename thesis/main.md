@@ -18,7 +18,7 @@ I will show that leveraging Haskells advantages can be used to create an akka li
 
 I want to create an actor framework for Haskell that leverages the typesystem to provide safety where possible. The main issue where the typesystem can be helpful is by ensuring that only messages can be sent that can be handled by the receiving actor. It should ideally be possible for the user to add further constraints on messages and actors or other parts of the system.
 
-Runtime components of this actor framework should be serializable if at all possible to provide. Serializeability is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can sore the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
+Runtime components of this actor framework should be serializable if at all possible to provide. Serializeability is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can store the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
 
 ## Result
 
@@ -26,7 +26,7 @@ Runtime components of this actor framework should be serializable if at all poss
 
 ## Actor Model
 
-The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an actor. A finite set of Actors that can communicate which each other is an Actor System. Actors can be sent messages and are characterized by the way they respond to these Messages. In Response to a message an Actor may:
+The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an actor. A finite set of Actors that can communicate with each other is an Actor System. Actors can be sent messages and are characterized by the way they respond to these Messages. In Response to a message an Actor may:
 
 1. Send a finite number of messages to other actors inside the same Actor System.
 2. Add a finite number of new Actors to the Actor System.
@@ -64,7 +64,7 @@ Unfortunately Cloud Haskell has to be somewhat opinionated since some features i
 
 ## Dependent Typing
 
-A dependent type is a type that depends on a value. Dependent types are are a way to express relationships between values inside of a typesystem. The canonic example for dependent types is a length indexed vector. A length indexed vector is a list which length is derivable from its type. This can be defined as a Haskell GADT:
+A dependent type is a type that depends on a value. Dependent types are a way to express relationships between values inside of a typesystem. The canonic example for dependent types is a length indexed vector. A length indexed vector is a list which length is derivable from its type. This can be defined as a Haskell GADT:
 
 ```haskell
 data Vec (l :: Nat) (a :: *) where
