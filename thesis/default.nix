@@ -36,7 +36,8 @@ mkPandoc.mkPandoc {
       {\bf sha256:} & \verb|${sha256}| \\
     \end{tabular}
     \\
-    To browse the repository at this commit visit \url{https://github.com/chisui/dakka/tree/${commitHash}}.
+    To browse the repository at this commit visit\\
+    \url{https://github.com/chisui/dakka/tree/${commitHash}}.
     \\
     To verify the hash run:
     \end{footnotesize}

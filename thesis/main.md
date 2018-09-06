@@ -131,6 +131,45 @@ instance {-# Overlappable #-} HElem e as => HElem e (a ': as) where
 
 Unlike the previous example here a type class is used instead of a type family. Matching rules differ between type families and type classes. Type families allow Non-Linear Patterns, that is the same variable may occure multiple times inside of the pattern, but type classes don't. Type classes are matched exclusively by structure. As a result both instance declarations of `HElem` look the same to compiler. Constraints are only checked after the compiler already commited to a given declaration. In this context `HElem e (e ': as)` is equvalent to `(e ~ a) => HElem e (a ': as)`. To prioritize which instance declaration will be chosen by the compiler the instances have to be annotated with overlapping instance pragmas.
 
+### Heterogeneous Maps
+
+A heterogeneous map may hold valued of different types at once. A values type is determined by the type of the key it is associated with. The easiest way to associate a value type with a key is to parametrize the key by the values type. The map itself is parametrized by the type of key used. A lookup function may then have the signature `lookup :: k v -> HMap k -> Maybe v` and `insert :: k v -> v -> HMap k -> HMap k`.
+
+There are ways to implement a completly typesafe variant of `HMap`, but if there is no way of manipulating the map directly it is safe to use `unsafeCoerce` as long as the API is safe.
+
+The base for this `HMap` will be a standard `Data.Map.Map`. To be able to use that map both keys and values have to be of a single type though. This can be achieved by creating custom `Key` and `Elem` types that capture and hide the concrete value type.
+
+```haskell
+data Key k where
+    Key :: k a -> Key k
+
+data Elem where
+    Elem :: a -> Elem
+
+newtype HMap k = HMap (Map (Key k) Elem)
+    deriving Eq
+```
+
+To be able to use `Key` and `Elem` as key and value of `Map` `Key` has to implement `Ord`. Additionally we need equality on `HMap` for which both `Key` and `Elem` have to implement `Eq`.
+
+To implement either `Eq` or `Ord` it is necessary to have an instance `Ord (k a)` for all `a`. Unfortunately it isn't possble to use the `forall` keyword in the context of instance declrations (yet [@hku-qantified-clas-constraints]). A work around until `GHC 8.6` is to capture all commonly used classes inside of the `Key` and `Elem` constructors.
+
+```haskell
+data Key k where
+    Key :: (Typeable (k a), Ord (k a), Show (k a)) 
+        => k a -> Key k
+
+instance Show (Key k) where
+    showsPrec d (Key k) = showsPrec d k
+
+instance Eq (Key k) where
+    Key a == Key b = Just a == typeRep b
+
+instance Ord (Key k) where
+    -- first order by type then, if type are the same use Ord
+    Key a `compare` Key b = typeRep [a] `compare` typeRep [b]
+                         <> Just a      `compare` cast b
+```
 ### Typeable
 
 In the process of compiling Haskell all type information is removed since the aren't needed at runtime. Type information may be useful at runtime sometimes. If a type is hidden via existential quantification it may be useful to be able to get a `String` representation of the captured type for debug and/or `Show` purposes. Without some way of retrieving type information at runtime it would also be impossible to define an `Eq` instance for data types using existential quantification.
@@ -659,45 +698,7 @@ instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActo
     p ! m = tell [Right $ Send p m]
 ```
 
-## HMap
-
-`HMap` is a heterogeneous map. That means that the map may hold valued of different types at once. A values type is determined by the type of the key it is associated with. The easiest way to associate a value type with a key is to parametrize the key by the values type. The map itself is parametrized by the type of key used. A lookup function may then have the signature `lookup :: k v -> HMap k -> Maybe v` and `insert :: k v -> v -> HMap k -> HMap k`.
-
-There are ways to implement a completly typesafe variant of `HMap`, but if there is no way of manipulating the map directly it is safe to use `unsafeCoerce` as long as the API is safe.
-
-The base for this `HMap` will be a standard `Data.Map.Map`. To be able to use that map both keys and values have to be of a single type though. This can be achieved by creating custom `Key` and `Elem` types that capture and hide the concrete value type.
-
-```haskell
-data Key k where
-    Key :: k a -> Key k
-
-data Elem where
-    Elem :: a -> Elem
-
-newtype HMap k = HMap (Map (Key k) Elem)
-    deriving Eq
-```
-
-To be able to use `Key` and `Elem` as key and value of `Map` `Key` has to implement `Ord`. Additionally we need equality on `HMap` for which both `Key` and `Elem` have to implement `Eq`.
-
-To implement either `Eq` or `Ord` it is necessary to have an instance `Ord (k a)` for all `a`. Unfortunately it isn't possble to use the `forall` keyword in the context of instance declrations (yet [@hku-qantified-clas-constraints]). A work around until `GHC 8.6` is to capture all commonly used classes inside of the `Key` and `Elem` constructors.
-
-```haskell
-data Key k where
-    Key :: (Typeable (k a), Ord (k a), Show (k a)) 
-        => k a -> Key k
-
-instance Show (Key k) where
-    showsPrec d (Key k) = showsPrec d k
-
-instance Eq (Key k) where
-    Key a == Key b = Just a == typeRep b
-
-instance Ord (Key k) where
-    -- first order by type then, if type are the same use Ord
-    Key a `compare` Key b = typeRep [a] `compare` typeRep [b]
-                         <> Just a      `compare` cast b
-```
+## executing MockActorContext
 
 
 
