@@ -15,6 +15,7 @@
 module Dakka.Types
     ( showsType
     , (=~=)
+    , compareWithTypes
     , GEq(..)
     , GOrd(..)
     ) where
@@ -33,6 +34,9 @@ showsType = showString "<<"
 
 (=~=) :: (Typeable a, Typeable b, Eq a) => a -> b -> Bool
 a =~= b = Just a == cast b
+
+compareWithTypes :: forall a b. (Typeable a, Typeable b, Ord a) => a -> b -> Ordering
+compareWithTypes a b = typeRep [a] `compare` typeRep [b] <> Just a `compare` cast b
 
 class GEq (f :: k -> *) where
     geq :: (Typeable a, Typeable b) => f a -> f b -> Bool

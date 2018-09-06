@@ -160,9 +160,17 @@ cast :: forall a b. (Typeable a, Typeable b) => a -> Maybe b
 
 # Implementation
 
+## Overview
+
+The API is designed to be close to the API of Akka where appropriate. That means an actors behavior is model by a function from a message to an action. An actors action is a monad where all interactions with other actors and the actor system itself are functions that produce values in that monad.
+
+To be able to perfom any type level computations on actors and actor systems there has to be some way of identifying specific kinds of actors by type. This is done requireing actors to implement a typeclass `Actor a` where `a` is the type we can use do identify actors by. This class has a single function called `behavior` which describes the behavior of the actor. What kind of messages an actor can handle and what kind of actors it may create in response has to be encoded in some way as well. 
+
+The monad which models an actors action is also a typeclass that has roughly the form `Mondad m => ActorContext m`. This `ActorContext` is an *mtl* style monad class which makes it possible to have different implementations of actor systems at once. This makes it possible for example to create one implementation that is meant for testing actors and another one that actually performs these actions inside of a distributed actor system. It also makes it possible to use something else then *cloud-haskell* as a backend without having to rewrite any actor implementations.
+
 ## Actor
 
-Since akka is not written in a pure functional language each actor can also invoke any other piece of code. This implicit capability very useful for defining real world systems. So we have to provide ways to doing something like this as well if we want to use this framework in a real world situation. Invoking any piece of code also includes managing the actor system itself. For example stopping it all together, which also turns out to be very useful. 
+Since akka is not written in a pure functional language each actor can also invoke any other piece of code. This implicit capability is very useful for defining real world systems. So we have to provide a way to do something like this as well if we want to use this framework in a real world situation. Invoking any piece of code also includes managing the actor system itself. For example stopping it all together, which also turns out to be very useful. 
 
 We need a way to identify specific actors at compile time to be able to reason about them. The best way to do so is by defining types for actors. Since Actors have a state this state type will be the type we will identify the actor with. We could have chosen the message type but the state type seems more descriptive. 
 
@@ -621,11 +629,7 @@ data CtxState = CtxState
     )
 ```
 
-`HMap` 
-
-`MonadState` is a prerequisite for `ActorContext`
-
-
+`MonadState` is a prerequisite for `ActorContext` so an instance of that has to be provided.
 
 ```haskell
 instance Actor a => MonadState a (MockActorContext a) where
@@ -639,6 +643,63 @@ instance Actor a => MonadState a (MockActorContext a) where
             let m' = HMap.hInsert ref a m 
             put $ CtxState i m'
 ```
+
+With this the actual definition of `ActorContext` for `MockActorContext` is pretty short.
+
+```haskell
+instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActorContext a) where
+
+    self = ask
+
+    create' _ = do
+      ref <- MockActorContext ctxCreateActor
+      tell [Left $ Creates ref]
+      pure ref
+
+    p ! m = tell [Right $ Send p m]
+```
+
+## HMap
+
+`HMap` is a heterogeneous map. That means that the map may hold valued of different types at once. A values type is determined by the type of the key it is associated with. The easiest way to associate a value type with a key is to parametrize the key by the values type. The map itself is parametrized by the type of key used. A lookup function may then have the signature `lookup :: k v -> HMap k -> Maybe v` and `insert :: k v -> v -> HMap k -> HMap k`.
+
+There are ways to implement a completly typesafe variant of `HMap`, but if there is no way of manipulating the map directly it is safe to use `unsafeCoerce` as long as the API is safe.
+
+The base for this `HMap` will be a standard `Data.Map.Map`. To be able to use that map both keys and values have to be of a single type though. This can be achieved by creating custom `Key` and `Elem` types that capture and hide the concrete value type.
+
+```haskell
+data Key k where
+    Key :: k a -> Key k
+
+data Elem where
+    Elem :: a -> Elem
+
+newtype HMap k = HMap (Map (Key k) Elem)
+    deriving Eq
+```
+
+To be able to use `Key` and `Elem` as key and value of `Map` `Key` has to implement `Ord`. Additionally we need equality on `HMap` for which both `Key` and `Elem` have to implement `Eq`.
+
+To implement either `Eq` or `Ord` it is necessary to have an instance `Ord (k a)` for all `a`. Unfortunately it isn't possble to use the `forall` keyword in the context of instance declrations (yet [@hku-qantified-clas-constraints]). A work around until `GHC 8.6` is to capture all commonly used classes inside of the `Key` and `Elem` constructors.
+
+```haskell
+data Key k where
+    Key :: (Typeable (k a), Ord (k a), Show (k a)) 
+        => k a -> Key k
+
+instance Show (Key k) where
+    showsPrec d (Key k) = showsPrec d k
+
+instance Eq (Key k) where
+    Key a == Key b = Just a == typeRep b
+
+instance Ord (Key k) where
+    -- first order by type then, if type are the same use Ord
+    Key a `compare` Key b = typeRep [a] `compare` typeRep [b]
+                         <> Just a      `compare` cast b
+```
+
+
 
 # Results
 
