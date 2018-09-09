@@ -1,0 +1,69 @@
+name: dakka
+version: 0.4.0
+synopsis: Minimal akka-inspired- dependently typed actor library
+description: Minimal akka-inspired- dependently typed actor library
+maintainer: Philipp Dargel <chisui@informatik.uni-bremen.de>
+category: Concurrency
+license: MIT
+
+ghc-options: -fprint-potential-instances -Wall -O2
+
+dependencies:
+  - base
+  - containers
+  - transformers
+  - bytestring
+  - contravariant
+  - constraints
+  - mtl
+  - binary
+  - distributed-process
+  - distributed-static
+  - network-transport-tcp
+  - dependent-map
+  - dependent-sum
+
+library:
+  source-dirs: src
+  ghc-options: -Werror 
+  exposed-modules:
+    - Dakka.Actor
+    - Dakka.AnswerableMessage
+    - Dakka.Actor.Internal
+    - Dakka.MockActorContext
+    - Dakka.RemoteTableState
+    - Dakka.Types
+    - Dakka.Convert
+    - Dakka.Constraints
+    - Dakka.HMap
+
+executable:
+  source-dirs: cloud
+  main: Main.hs
+  dependencies: 
+    - base
+    - transformers
+    - mtl
+    - binary 
+    - dakka
+    - distributed-process
+    - network-transport
+    - network-transport-tcp
+
+tests:
+  spec:
+    source-dirs: test
+    main: Spec.hs 
+    dependencies:
+      - base
+      - containers
+      - transformers
+      - mtl
+      - dakka
+      - binary
+      - bytestring 
+      - should-not-typecheck
+      - tasty
+      - tasty-quickcheck
+      - tasty-hunit
+
