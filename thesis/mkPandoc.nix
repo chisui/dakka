@@ -1,5 +1,8 @@
-{...}@args:
-import (builtins.fetchTarball {
-  url    = "https://github.com/chisui/nix-mkPandoc/archive/74a2f86dda3b773243254aab95c403f3809b5f6a.tar.gz";
-  sha256 = "1scwji5r479wq1nl3w8gkp919j1w0axh942n5yl6kxpcp5c7ldsk";
+args:
+let 
+  commit = "2700a64a1a32be2b9afbdc6485910a2421462e60";
+  sha256 = "00q4spvhpj70f7g7iadk94kyb12w95wfl5v3a5m1fpjzi0i1ki3i";
+in import (builtins.fetchTarball {
+  inherit sha256;
+  url = "https://github.com/chisui/nix-mkPandoc/archive/${commit}.tar.gz";
 }) args 
