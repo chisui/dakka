@@ -635,7 +635,7 @@ create = tell $ Create (Proxy @b)
 
 `become` does not need a corresponding function in this case since `State` already defines everything we need.
 
-# Testing
+## Testing
 
 One of the goals of the actor framework is testability of actors written in the framework. The main way that testability is achieved is by implementing a special `ActorContext` that provides a way to execute an actors behavior in an controlled environment. The name of this `ActorContext` is `MockActorContext`. `MockActorContext` has to provide implementations for `create`, `send` and `MonadState`. Additionally we need a way to execute a `MockActorContext`. One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
 
@@ -698,9 +698,14 @@ instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActo
     p ! m = tell [Right $ Send p m]
 ```
 
-## executing MockActorContext
+To execute a single `MockActorContext` action all monad transformer actions have to be executed. It doesn't make sense though to export this capability directly since `CtxState` should not be visible to the user. So exported variants on the core running function construct `CtxState` values themselves.
 
+```haskell
+runMockInternal :: forall a v. Actor a => MockActorContext a v -> ActorRef a -> CtxState -> ((v, CtxState), [SystemMessage])
+runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT ctx ref)
+```
 
+## executing in a real environment
 
 # Results
 

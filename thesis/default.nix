@@ -1,7 +1,5 @@
 { pkgs     ? import ../nixpkgs.pinned.nix 
 , mkPandoc ? import ./mkPandoc.nix { inherit pkgs; }
-, eisvogel ? import ./nix-mkPandoc/eisvogel.latex.nix { inherit pkgs; }
-, jcis-csl ? import ./nix-mkPandoc/journal-of-computer-information-systems.csl.nix { inherit pkgs; }
 , pandoc-citeproc ? pkgs.haskellPackages.pandoc-citeproc
 , date ? "2018-??-??"
 , sha256 ? null
@@ -29,18 +27,27 @@ mkPandoc.mkPandoc {
     toc-own-page = true;
     titlepage    = true;
   };
-  include-before-body = if commitHash == null || sha256 == null then null else (builtins.toFile "dakka-thesis-hashes.tex" ''
+  include-after-body = if commitHash == null || sha256 == null then null
+  else (builtins.toFile "dakka-thesis-hashes.tex" ''
+    \section{Appendix}
+
+    All code produced including this thesis itself is developed on github at
+    \url{https://github.com/chisui/dakka}. This thesis is based on the
+    following commit.
+    
     \begin{footnotesize}
     \begin{tabular}{ r l }
       {\bf Commit:} & \verb|${commitHash}| \\
       {\bf sha256:} & \verb|${sha256}| \\
     \end{tabular}
-    \\
+    \end{footnotesize}\\
+
     To browse the repository at this commit visit\\
-    \url{https://github.com/chisui/dakka/tree/${commitHash}}.
-    \\
+
+    \url{https://github.com/chisui/dakka/tree/${commitHash}}.\\
+
     To verify the hash run:
-    \end{footnotesize}
+
     \begin{scriptsize}
     \begin{verbatim}
     nix-prefetch-url --unpack \
