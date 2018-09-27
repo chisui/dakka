@@ -707,6 +707,8 @@ runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT c
 
 ## executing in a real environment
 
+I use cloud-haskell 
+
 # Results
 
 ## Dependent types in Haskell

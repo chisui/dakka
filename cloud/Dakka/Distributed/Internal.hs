@@ -44,12 +44,9 @@ import qualified "dakka" Dakka.Actor.Internal                           as A
 
 newtype DistributedActorContext a v
     = DistributedActorContext
-        { runDAC :: (StateT a Process v)
+        { runDAC :: StateT a Process v
         }
-  deriving (Functor, Applicative, Monad)
-
-instance MonadState a (DistributedActorContext a) where
-    state = DistributedActorContext . state
+  deriving (Functor, Applicative, Monad, MonadState a, MonadIO)
 
 liftProcess :: Process v -> DistributedActorContext a v
 liftProcess = DistributedActorContext . lift
@@ -62,9 +59,6 @@ instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (Distri
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
 
     create' _ = undefined
-
-instance MonadIO (DistributedActorContext a) where
-    liftIO = DistributedActorContext . lift . liftIO
 
 staticRunActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Closure (Process ())
 staticRunActor = error "cant run static actor"
