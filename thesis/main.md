@@ -751,6 +751,8 @@ Creating an `Actor` means spawning a new `Process` that executes `runActor` for 
 
 It provides a way to serialize references to values and functions that are known at compiletime and compose these. This is done using a heterogeneous map that has to be manually populated with all static values that the program may encounter while running. Unfortunately there is no way to register polymorphic functions like `runActor` this way. Luckily there is a way to enumerate all actor types that exist in a given actor system and could register a version of `runActor` for each one. I wasn't able to do this though for time reasons.
 
+As a result dakka currently hasn't the capability to run a full distributed actor system.
+
 # Results
 
 ## Dependent types in Haskell
