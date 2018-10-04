@@ -31,7 +31,9 @@ import           "distributed-process" Control.Distributed.Process      (Closure
                                                                          Process,
                                                                          expect,
                                                                          getSelfPid,
-                                                                         send)
+                                                                         processNodeId,
+                                                                         send,
+                                                                         spawn)
 import           "distributed-process" Control.Distributed.Process.Node (initRemoteTable,
                                                                          newLocalNode,
                                                                          runProcess)
@@ -58,16 +60,19 @@ instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (Distri
     self = A.ActorRef . encode <$> liftProcess getSelfPid
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
 
-    create' _ = undefined
+    create' a = liftProcess $ do
+        nid <- processNodeId <$> getSelfPid
+        pid <- spawn nid (staticRunActor a)
+        return . A.ActorRef . encode $ pid
 
-staticRunActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Closure (Process ())
+staticRunActor :: forall a proxy. A.Actor a => proxy a -> Closure (Process ())
 staticRunActor = error "cant run static actor"
 
 runActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Process ()
 runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
   where
     initActor = A.behavior . Left $ A.Created
-    awaitMessage = A.behavior . Right =<<liftProcess (expect @(A.Message a))
+    awaitMessage = A.behavior . Right =<< liftProcess (expect @(A.Message a))
 
 createActorSystem :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => Transport -> proxy a -> IO ()
 createActorSystem t p = do

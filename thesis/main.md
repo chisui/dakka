@@ -705,9 +705,51 @@ runMockInternal :: forall a v. Actor a => MockActorContext a v -> ActorRef a -> 
 runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT ctx ref)
 ```
 
-## executing in a real environment
+## executing in a destributed environment
 
-I use cloud-haskell 
+When executing an actor inside a destributed environment you have to take care of message passing and the actual concurrent execution. This is a hard problem. Luckily cloud-haskell already exists and provides exactly what is needed here. It is itself a Erlang-style actor framework. Although all it's messages are untyped and every actor has access to `IO`. This enables us to execute the previously defined typed actors ontop of it.
+
+As with the mock case the cetral entry point will be the `ActorContext`. All actions in cloud-haskell are inside of the `Process` monad. So we need to keep track of the actors state and access to the `Process` monad. This can be achieved using a `newtype` wrapper around `StateT` transformer of `Process`:
+
+```haskell
+newtype DistributedActorContext a v
+    = DistributedActorContext
+        { runDAC :: StateT a Process v
+        }
+  deriving (Functor, Applicative, Monad, MonadState a, MonadIO)
+```
+
+`GeneralizedNewtypeDeriving` is used to derive the normaly not derivable instances like `MonadIO`. `ActorContext` has to be implemented manually.
+
+```haskell
+instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (DistributedActorContext a) where
+    self = A.ActorRef . encode <$> liftProcess getSelfPid
+    (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
+
+    create' a = liftProcess $ do
+        nid <- processNodeId <$> getSelfPid
+        pid <- spawn nid (staticRunActor a)
+        return . A.ActorRef . encode $ pid
+```
+
+All we have to do to implment `self` and `(!)` is to wrap/unwrap the process id in an `ActorRef` and use the functions that `Process` gives us.
+Notice that `create'` uses `staticRunActor` instead of `runActor`. More on this in the next section
+
+Executing an `Actor` in this context now means dispatching a `Created` signal and continously polling for messages.
+
+```haskell
+runActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Process ()
+runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
+  where
+    initActor = A.behavior . Left $ A.Created
+    awaitMessage = A.behavior . Right =<< liftProcess (expect @(A.Message a))
+```
+
+### Creating Actors
+
+Creating an `Actor` means spawning a new `Process` that executes `runActor` for that specific actor type. The problem here is that the instruction on what the `Process` should do has to be serializable. Since functions are not Serializeability in Haskell cloud-haskell provides a workaround with the *distirbuted-static* package.
+
+
 
 # Results
 

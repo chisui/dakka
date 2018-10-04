@@ -6,30 +6,31 @@
 , commit ? null
 , commitHash ? if commit != null then (builtins.fromJSON commit).object.sha else null
 , verbose ? false
+, book ? false
 }:
-with pkgs.lib;
-mkPandoc.mkPandoc {
+mkPandoc {
   name         = "dakka-thesis.pdf";
   version      = "0.2.0";
   src          = ./.;
   documentFile = ./main.md;
   bibliography = ./bibliography.bib;
   filters      = [ pandoc-citeproc ];
-  toc          = true;
-  template     = mkPandoc.templates.eisvogel;
+  template     = mkPandoc.template.latex.eisvogel;
   csl          = mkPandoc.csls.journal-of-computer-information-systems;
+
   listings     = true;
-  top-level-division = "section";
+  toc          = true;
+  top-level-division = if book then "chapter" else "section";
   number-sections = true;
   variables = {
-    inherit date;
+    inherit date book;
     geometry     = "left=3.5cm, right=2.5cm";
     toc-own-page = true;
     titlepage    = true;
   };
   include-after-body = if commitHash == null || sha256 == null then null
   else (builtins.toFile "dakka-thesis-hashes.tex" ''
-    \section{Appendix}
+    \${if book then "chapter" else "section"}{Appendix}
 
     All code produced including this thesis itself is developed on github at
     \url{https://github.com/chisui/dakka}. This thesis is based on the
