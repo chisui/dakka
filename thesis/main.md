@@ -749,14 +749,22 @@ runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.s
 
 Creating an `Actor` means spawning a new `Process` that executes `runActor` for that specific actor type. The problem here is that the instruction on what the `Process` should do has to be serializable. Since functions are not Serializeability in Haskell cloud-haskell provides a workaround with the *distirbuted-static* package.
 
-It provides a way to serialize references to values and functions that are known at compiletime and compose these. This is done using a heterogeneous map that has to be manually populated with all static values that the program may encounter while running. Unfortunately there is no way to register polymorphic functions like `runActor` this way. Luckily there is a way to enumerate all actor types that exist in a given actor system and could register a version of `runActor` for each one. I wasn't able to do this though for time reasons.
+It provides a way to serialize references to values and functions that are known at compiletime and compose these. This is done using a heterogeneous map that has to be manually populated with all static values that the program may encounter while running. Unfortunately there is no way to register polymorphic functions like `runActor` this way. Luckily there is a way to enumerate all actor types that exist in a given actor system and could register a version of `runActor` for each one. I wasn't able to do this though for time reasons. As the hirarchy of the actor system, described by the `Creates` typefamily is potentially infinite, the registration would have to perform cycle detection on the type level.
 
 As a result dakka currently hasn't the capability to run a full distributed actor system.
 
 # Results
 
+Although I do not have a runnable distributed system there are usable results in here. 
+
 ## Dependent types in Haskell
 
+Dependent types are a powerful tool in Haskell. Unfortunately their usabillity is somewhat limited since they aren't supported natively. The lack of native support doesn't make it's use impossible but prevelent usage cumbersome. Promotion of values to types and demotion from types to values has to be done manually. For promotion and demotion there is the library *singletons*, which is written by the author of the `TypeInType` language extension, that is central to dependent types in Haskell. The *singletons* way to promote functions, by generating corresponding typefamilies for them but debugging these generated typefamilies is extremely hard. When there is an error in the types GHC either just has the names of the generated typefamilies, that are not very informative or there is just a statement that two types don't unify without a information on how GHC got those two types. These debugging problems make the usage of the *singletons* library and dependent types in general tedious for library authors. The effects are even worse for users of libraries that heavily leverage *singletons* that do not have a good understanding of that library or dependent types since they might get the same kind of cryptic errors unless the library author takes extra steps and exports special interface types that produce more readable errors. 
+
+As a result of this I opted to reduce the usage of dependent types in my code and do without the *singletons* library alltogether. Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were extremely useful 
+
 ## Cloud Haskell
+
+Since most of the effort went into creating a typed interface rather then the actual execution of it I can't comment on how cloud haskell actually performes as a backend for the created interface.
 
 # Bibliography
