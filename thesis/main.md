@@ -10,9 +10,9 @@ tags:
 
 # Introduction
 
-The goal of this thesis is to create an Actor framework, similar to akka for Haskell. Haskell gives us many tools in its typesystem that together with Haskells purely functional nature enables us to formulate more strict constraints on actor systems. To formulate this I will leverage some of Haskells dependent typing features. Another focus of this reimplementation is the testability of code written using the framework.
+The goal of this thesis is to create an Actor framework, similar to Akka for Haskell. Haskell gives us many tools in its typesystem that together with Haskells purely functional nature enables us to formulate more strict constraints on actor systems. To formulate these constraints I will leverage some of Haskells dependent typing features. Another focus of the thesis is the testability of code written using the created framework.
 
-I will show that leveraging Haskells advantages can be used to create an akka like actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in akka. I will also show that this approach has some downsides that mostly relate to the maturity of Haskells dependent typing features. 
+I will show that leveraging Haskells advantages can be used to create an akka like actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in akka. I will also show that exessive usage of the typesystem has some downsides that mostly relate to the maturity of Haskells dependent typing features. 
 
 ## Goals
 

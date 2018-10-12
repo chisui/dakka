@@ -2,7 +2,7 @@ language: nix
 sudo: true
 script:
 - |
-  nix build -f thesis --arg book true\
+  nix build -f thesis\
     --arg date "$(date +\"%Y-%m-%d\")" \
     --argstr commit "$(curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master)" \
     --argstr sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz)"
