@@ -74,6 +74,8 @@ data Vec (l :: Nat) (a :: *) where
 
 Where `Nat` is a kind that represents positive integers as types. This example illustrates one of the core properties of dependent types: Values and types are interchangeable, that means `0` and `l + 1` are types. In Haskell this behavior can be enabled using Language extensions.  
 
+In Haskell types and values are fundamentally different from each other. For dependent typing to be possible though there has to be a way to convert between types and values. To convert some values to types the `DataKinds` language extension was introduced. `DataKinds` allows data types to be promoted to kinds and their value constructors to types
+
 ## Haskell Language features 
 
 Modern Haskell development involves many language features that are not present in the base language of *Haskell2010*. These features have to explicitly be enabled by enabling language extensions. Especially working with dependent types and using more advanced features of Haskells typesystem require many of these language extensions. Language extensions are enabled using `LANGUAGE` pragmas at the beginning of the file for which the extension should be enabled. 
