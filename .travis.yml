@@ -7,6 +7,7 @@ script:
     --argstr commit "$(curl https://api.github.com/repos/chisui/dakka/git/refs/heads/master)" \
     --argstr sha256 "$(nix-prefetch-url --unpack https://github.com/chisui/dakka/archive/master.tar.gz)"
   if [ -n "$GITHUB_API_KEY" ]; then
+    echo "updating pdf"
     cd "$TRAVIS_BUILD_DIR"
     git clone --depth 1 -b gh-pages https://github.com/chisui/dakka web
     cd web
@@ -14,6 +15,7 @@ script:
     git add ./thesis.pdf
     git -c user.name='travis' -c user.email='travis' commit -m "travis autoupdate"
     git push -q https://chisui:$GITHUB_API_KEY@github.com/chisui/dakka &2>/dev/null
+    echo "pdf updated"
     cd "$TRAVIS_BUILD_DIR"
   fi
 - nix build
