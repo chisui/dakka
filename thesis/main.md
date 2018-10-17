@@ -74,7 +74,7 @@ data Vec (l :: Nat) (a :: *) where
 
 Where `Nat` is a kind that represents positive integers as types. This example illustrates one of the core properties of dependent types: Values and types are interchangeable, that means `0` and `l + 1` are types. In Haskell this behavior can be enabled using Language extensions.  
 
-In Haskell types and values are fundamentally different from each other. For dependent typing to be possible though there has to be a way to convert between types and values. To convert some values to types the `DataKinds` language extension was introduced. `DataKinds` allows data types to be promoted to kinds and their value constructors to types
+In Haskell types and values are fundamentally different from each other. For dependent typing to be possible though there has to be a way to convert between types and values. To convert some values to types the `DataKinds` language extension was introduced. `DataKinds` allows data types to be promoted to kinds and their value constructors to types. The type equivalent to functions are type families. Haskell itself doesn't provide a mechanism to promote functions to type families though. The *singletons* library provides a way to promote functions as well as other facilities helpful for dependent typing. Since I ended up not using the *singletons* library I wont go into detail describing it here.  
 
 ## Haskell Language features 
 
@@ -84,7 +84,7 @@ Modern Haskell development involves many language features that are not present 
 - `TypeFamilies`: Adds the ability to define type and data families. A type family can be thought of as a function on types.
 - `PolyKinds`: Allows mixing different kinds. For example `k` in `l :: [k]` could normally only be of kind `*` but with `PolyKinds` it may be any kind.
 
-These two extensions are the foundation for dependent typing in Haskell. This enables the definition of `not` on types of kind `Bool`:
+These extensions are the foundation for dependent typing in Haskell. This enables the definition of `not` on types of kind `Bool`:
 
 ```haskell
 type family Not (a :: Bool) :: Bool where
@@ -758,6 +758,10 @@ As a result dakka currently hasn't the capability to run a full distributed acto
 # Results
 
 Although I do not have a runnable distributed system there are usable results in here. 
+
+## Actor framework
+
+I demonstrated that it is possible to create an actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the actors in it using the typesystem. 
 
 ## Dependent types in Haskell
 
