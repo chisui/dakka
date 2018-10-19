@@ -10,15 +10,15 @@ tags:
 
 # Introduction
 
-The goal of this thesis is to create an Actor framework, similar to Akka for Haskell. Haskell gives us many tools in its typesystem that together with Haskells purely functional nature enables us to formulate more strict constraints on actor systems. To formulate these constraints I will leverage some of Haskells dependent typing features. Another focus of the thesis is the testability of code written using the created framework.
+The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskells type system can be leveraged to improve uppon Akkas design. Haskell gives us many tools in its typesystem that together with Haskells purely functional nature enables us to formulate more strict constraints on actor systems. To formulate these constraints I will leverage some of Haskells dependent typing features. Another focus of the thesis is the testability of code written using the created framework.
 
-I will show that leveraging Haskells advantages can be used to create an akka like actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in akka. I will also show that exessive usage of the typesystem has some downsides that mostly relate to the maturity of Haskells dependent typing features. 
+I will show that leveraging Haskells advantages can be used to create an Akka like actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in Akka. The implementation of the actor framework and important design decisions will be discussed in detail. I will also show that exessive usage of the typesystem has some downsides that mostly relate to the maturity of Haskells dependent typing features.
 
 ## Goals
 
-I want to create an actor framework for Haskell that leverages the typesystem to provide safety where possible. The main issue where the typesystem can be helpful is by ensuring that only messages can be sent that can be handled by the receiving actor. It should ideally be possible for the user to add further constraints on messages and actors or other parts of the system.
+I want to create an actor framework for Haskell that leverages the typesystem to constraint actor behaviors to minimize unexpected sideeffects. The main issue the typesystem may assist in is by ensuring that only messages can be sent that can be handled by the receiving actor. It should ideally be possible for the user to add further constraints on messages and actors or other parts of the system as they choose.
 
-Runtime components of this actor framework should be serializable if at all possible to provide. Serializeability is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided since we could store relevant parts of the system to further review them. If we can store the state of the system we can also recover by simply restoring a previous system state or parts of it. These states could then also be sent to different processes or machines to migrate actors from one node to another.
+Runtime components of this actor framework should be serializable. Serializeability is very desirable since it aids debugging, auditing, distribution and resilience. Debugging and auditing are aided by Serializeability since we could store relevant parts of the system to further review them independent of the runtime environment. If we can store the state of the system we can also recover the whole system or parts of it by simply restoring a previous system state. These states could then also be sent to different processes or machines to migrate actors from one node to another.
 
 ## Result
 
@@ -26,25 +26,25 @@ Runtime components of this actor framework should be serializable if at all poss
 
 ## Actor Model
 
-The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an actor. A finite set of Actors that can communicate with each other is an Actor System. Actors can be sent messages and are characterized by the way they respond to these Messages. In Response to a message an Actor may:
+The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an actor. A finite set of Actors that can communicate with each other is an Actor System. Actors can recieve messages and are characterized by the way they respond to these Messages. In Response to a message an Actor may:
 
 1. Send a finite number of messages to other actors inside the same Actor System.
 2. Add a finite number of new Actors to the Actor System.
 3. Designate the behavior to be used for the next message it receives.
 
-The Actor Model keeps these definitions very abstract. As a result of that aspect like identifying actors inside an Actor System and message ordering become implementation details.
+The Actor Model keeps these definitions very abstract. As a result of this abstractness aspects like identifying actors inside an Actor System and message ordering become implementation details.
 
 ## Akka
 
-Akka is an implementation of the Actor Model written in Scala for the JVM. In akka some design decisions where made while implementing the Actor Model that turned out to be very useful. 
+Akka is an implementation of the Actor Model written in Scala for the JVM. In Akka some design decisions were made in the implemention the Actor Model that turned out to be very useful. 
 
-In Akka Actors are represented as classes that extend a common base class. When an actor is created a new instance of the actors class is created. The actor classs' constructor may require additional arguments. Constructor arguments have to be supplied when an actor is created. Actor classes have to provide an initial `revice` property which represents the actors inital behavior. The type of the recieve property is `PartialFunction[Any, Unit]` which means it's a possibly partial function that takes arguments of any type and returns a unit. An actor class may have fields which represent internal state. In addition to fields there is the `become` method which provides a way to switch the behavior of the current actor. Inside of its behavior the actor has access to a reference to itself as well as to the sender of the currently handled message. Inside an actor system messages of any type can be sent to any reference. There is a special message called `PoisonPill` which will terminate an actor when recieved. When an actor terminates it's designated supervisor is notified. Normally an actors supervisor is the actor that created it.[@Akka-docu]
+In Akka Actors are represented as classes that extend a common base class. When an actor is created a new instance of the actors class is created. The actor classs' constructor may require additional arguments. Constructor arguments have to be supplied when an actor is created. Actor classes have to provide an initial `receive` property which represents the actors inital behavior. The type of the `receive` property is `PartialFunction[Any, Unit]` which means it's a possibly partial function that takes arguments of any type and returns a unit. An actor class may have fields which represent internal state. In addition to fields they inherit the `become` method which provides a way to switch the behavior of the current actor. Inside of its behavior the actor has access to a reference to itself as well as to the sender of the currently handled message. Inside an actor system messages of any type can be sent to any reference. There is a special message called `PoisonPill` which will terminate an actor when received. When an actor terminates it's designated supervisor is notified. Normally an actors supervisor is the actor that created it.[@Akka-docu]
 
 In addition to these foundational actors Akka provides more control and features for actors like control over actors mailboxes[@Akka-docu-mailboxes], message routing[@Akka-docu-routing], clustering of Actor Systems[@Akka-docu-cluster] and more.
 
-The way Akka is implemented lets it differ from the traditional Actor Model in some cases and extend it:
+The way Akka is implemented lets it differ from the traditional Actor Model in some cases and extends it:
 
-- Actors have two kinds of state: The internal state of the Actor class instance and the current `Recieve` behavior.
+- Actors have two kinds of state: The internal state of the Actor class instance and the current `Receive` behavior.
 - A strict order on messages is enforced. For every pair of actors in the Actor System it is ensured that messages from one of those Actors to the other are handled in the same order they where sent. A notable exception to this is the `Kill` message which terminates an actor as soon as possible.
 - Actors are named when they are created.
 - Each actor has access to the current actor system via the `context` property. This gives any actor access to every other actor in the current actor system. Actors can be enumerated or searched for by path.
@@ -52,15 +52,15 @@ The way Akka is implemented lets it differ from the traditional Actor Model in s
 - Since Scala isn't a pure language actors can perform arbitrary operations in response to their behavior.
 - Akka expects messages to be immutable.
 
-There is also an alternative package to the described actor base package which adds type information to actors [@Akka-docu-typed]. The main differences betweene those two packages is that actor references are parametrized by the type of message that the defining actor may handle and actors have to define what kind of message they may recieve.
+There is also an alternative package to the described actor base package which adds type information to actors[@Akka-docu-typed]. The main differences betweene those two packages is that actor references are parametrized by the type of message that the defining actor may handle and actors have to define what kind of message they may receive.
 
 ## Cloud Haskell
 
 Cloud Haskell is described by its authors as a platform for Erlang-style concurrent and distributed programming in Haskell.
 
-Since Erlang-style concurrency is implemented using the actor model Cloud Haskell already provides a full fledged actor framework for Haskell. In addition there are rich facilities to create distributed Haskell system. It doesn't make creating distributed systems in Haskell easy but is capable of performing the heavy lifting.
+Since Erlang-style concurrency is implemented using the actor model, Cloud Haskell already provides a full fledged actor framework for Haskell. In addition there are rich facilities to create distributed systems in Haskell. It doesn't make creating distributed systems in Haskell easy but is capable of performing the heavy lifting.
 
-Unfortunately Cloud Haskell has to be somewhat opinionated since some features it provides wouldn't be possible otherwise. The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. Cloud Haskell solves this through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
+Unfortunately Cloud Haskell has to be somewhat opinionated since some features it provides wouldn't be possible otherwise. The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. Cloud Haskell solves the function serialization problem through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
 
 ## Dependent Typing
 
@@ -74,13 +74,13 @@ data Vec (l :: Nat) (a :: *) where
 
 Where `Nat` is a kind that represents positive integers as types. This example illustrates one of the core properties of dependent types: Values and types are interchangeable, that means `0` and `l + 1` are types. In Haskell this behavior can be enabled using Language extensions.  
 
-In Haskell types and values are fundamentally different from each other. For dependent typing to be possible though there has to be a way to convert between types and values. To convert some values to types the `DataKinds` language extension was introduced. `DataKinds` allows data types to be promoted to kinds and their value constructors to types. The type equivalent to functions are type families. Haskell itself doesn't provide a mechanism to promote functions to type families though. The *singletons* library provides a way to promote functions as well as other facilities helpful for dependent typing. Since I ended up not using the *singletons* library I wont go into detail describing it here.  
+In Haskell types and values are fundamentally different from each other. For dependent typing to be possible, there has to be a way to convert between types and values. To convert some values to types the `DataKinds` language extension was introduced. `DataKinds` allows data types to be promoted to kinds and their value constructors to types. The type equivalent to functions are type families. Haskell itself doesn't provide a mechanism to promote functions to type families. The *singletons* library provides a way to promote functions, as well as other facilities helpful for dependent typing. Since I ended up not using the *singletons* library I wont go into detail describing it here.  
 
 ## Haskell Language features 
 
 Modern Haskell development involves many language features that are not present in the base language of *Haskell2010*. These features have to explicitly be enabled by enabling language extensions. Especially working with dependent types and using more advanced features of Haskells typesystem require many of these language extensions. Language extensions are enabled using `LANGUAGE` pragmas at the beginning of the file for which the extension should be enabled. 
 
-- `DataKinds`: Allows types to be promoted to kinds and values to types. 
+- `DataKinds`: Allows data types to be promoted to kinds and value constructors to types. 
 - `TypeFamilies`: Adds the ability to define type and data families. A type family can be thought of as a function on types.
 - `PolyKinds`: Allows mixing different kinds. For example `k` in `l :: [k]` could normally only be of kind `*` but with `PolyKinds` it may be any kind.
 
@@ -135,11 +135,11 @@ Unlike the previous example here a type class is used instead of a type family. 
 
 ### Heterogeneous Maps
 
-A heterogeneous map may hold valued of different types at once. A values type is determined by the type of the key it is associated with. The easiest way to associate a value type with a key is to parametrize the key by the values type. The map itself is parametrized by the type of key used. A lookup function may then have the signature `lookup :: k v -> HMap k -> Maybe v` and `insert :: k v -> v -> HMap k -> HMap k`.
+A heterogeneous map may hold values of different types at once. A type of a value is determined by the type of the key it is associated with. The easiest way to associate a value type with a key is to parametrize the key by the type of the value. The map itself is parametrized by the type of key used. A lookup function may then have the signature `lookup :: k v -> HMap k -> Maybe v` and `insert :: k v -> v -> HMap k -> HMap k`.
 
 There are ways to implement a completly typesafe variant of `HMap`, but if there is no way of manipulating the map directly it is safe to use `unsafeCoerce` as long as the API is safe.
 
-The base for this `HMap` will be a standard `Data.Map.Map`. To be able to use that map both keys and values have to be of a single type though. This can be achieved by creating custom `Key` and `Elem` types that capture and hide the concrete value type.
+The base for this `HMap` will be a standard `Data.Map.Map`. To be able to use that map both keys and values have to be of a single type. This can be achieved by creating custom `Key` and `Elem` types that capture and hide the concrete value type.
 
 ```haskell
 data Key k where
@@ -174,13 +174,13 @@ instance Ord (Key k) where
 ```
 ### Typeable
 
-In the process of compiling Haskell all type information is removed since the aren't needed at runtime. Type information may be useful at runtime sometimes. If a type is hidden via existential quantification it may be useful to be able to get a `String` representation of the captured type for debug and/or `Show` purposes. Without some way of retrieving type information at runtime it would also be impossible to define an `Eq` instance for data types using existential quantification.
+In the process of compiling Haskell, all type information is removed since it isn't needed at runtime. Type information may be useful at runtime sometimes. If a type is hidden via existential quantification it may be useful to be able to get a `String` representation of the captured type for debug and/or `Show` purposes for example. Without some way of retrieving type information at runtime it would also be impossible to define an `Eq` instance for data types using existential quantification.
 
-Runtime type information is provided by `Data.Typeable` in Haskell2010. The type class `Typeable` provides a single function `typeRep# :: TypeRep a` where `TypeRep a` is a representation of the type `a`. `typeRep#` and `TypeRep a` are only used internally though. The module `Data.Typeable` exports ways to leverage this functionallity. GHC will derive an instance of `Data.Typeable` for every data type, type class and promoted data constructors automatically[@GHC-typeable]. Manually defining an instance of `Data.Typeable` will cause an error to ensure that the type representation is valid. 
+Runtime type information is provided by `Data.Typeable` in Haskell2010. The type class `Typeable` provides a single function `typeRep# :: TypeRep a` where `TypeRep a` is a representation of the type `a`. `typeRep#` and `TypeRep a` are only used internally. The module `Data.Typeable` exports ways to leverage this functionallity. GHC will derive an instance of `Data.Typeable` for every data type, type class and promoted data constructors automatically[@GHC-typeable]. Manually defining an instance of `Data.Typeable` will cause an error to ensure that the type representation is valid. 
 
 #### Showing a type
 
-Since `TypeRep` implements `Show` we can print any type at runtime. The `Show` implementation of `TypeRep` doesn't produce output that is equivalent to the way types are represented in haskell error messages though. This missmatch is partly due to the fact that there is no way to represent type aliases using `TypeRep` and some issues with the `Show` implementation itself[@trac-14341]. 
+Since `TypeRep` implements `Show` we can print any type at runtime. The `Show` implementation of `TypeRep` doesn't produce output that is equivalent to the way types are represented in Haskell error messages. This missmatch is partly due to the fact that there is no way to represent type aliases using `TypeRep` and some issues with the `Show` implementation itself[@trac-14341]. 
 
 ```haskell
 showsType :: forall a. Typeable a => ShowS
@@ -193,7 +193,7 @@ showsType = showString "<<"
 
 `Typeable` enables the creation of Dynamic values in Haskell. To represent a dynamic value, all we have to do is capture the `Typeable` instance of the given type. Dynamic values are implemented by `Data.Dynmaic` in `base`. To construct a dynamic value `toDyn :: Typeable a => a -> Dynamic` is used. To extract a value `fromDynamic :: Typeable a => Dynmaic -> Maybe a` which only returns a value if the expected type `a` is the same as the captured one. Data extraction is only possible because there are runtime type representations that can be compared.
 
-In the same way values can be extracted from dynamic values it is possible to define a way to conditionally cast a value of one type to another for as long as those two types are the same where it is only known at runtime if that is the case:
+In the same way values can be extracted from dynamic values, it is possible to define a way to conditionally cast a value of one type to another, as long as those two types are the same, where it is only known at runtime if that is the case:
 
 ```haskell
 cast :: forall a b. (Typeable a, Typeable b) => a -> Maybe b
@@ -203,15 +203,15 @@ cast :: forall a b. (Typeable a, Typeable b) => a -> Maybe b
 
 ## Overview
 
-The API is designed to be close to the API of Akka where appropriate. That means an actors behavior is model by a function from a message to an action. An actors action is a monad where all interactions with other actors and the actor system itself are functions that produce values in that monad.
+The API is designed to be close to the API of Akka where appropriate. That means an actors behavior is modeled by a function from a message to an action. An actors action is a monad where all interactions with other actors and the actor system itself are functions that produce values in that monad.
 
-To be able to perfom any type level computations on actors and actor systems there has to be some way of identifying specific kinds of actors by type. This is done requireing actors to implement a typeclass `Actor a` where `a` is the type we can use do identify actors by. This class has a single function called `behavior` which describes the behavior of the actor. What kind of messages an actor can handle and what kind of actors it may create in response has to be encoded in some way as well. 
+To be able to perfom any type level computations on actors and actor systems there has to be some way of identifying specific kinds of actors by type. Actors have to implement a typeclass `Actor a` where `a` is the type we can use do identify actors by. The `Actor` class has a single function called `behavior`, which describes the behavior of the actor. What kind of messages an actor can handle and what kind of actors it may create in response has to be encoded in some way as well. 
 
-The monad which models an actors action is also a typeclass that has roughly the form `Mondad m => ActorContext m`. This `ActorContext` is an *mtl* style monad class which makes it possible to have different implementations of actor systems at once. This makes it possible for example to create one implementation that is meant for testing actors and another one that actually performs these actions inside of a distributed actor system. It also makes it possible to use something else then *cloud-haskell* as a backend without having to rewrite any actor implementations.
+The monad which models an actors action is also a typeclass, that has roughly the form `Mondad m => ActorContext m`. This `ActorContext` is an *mtl* style monad class, which makes it possible to have different implementations of actor systems at once. This makes it possible for example to create one implementation that is meant for testing actors and another one that actually performs these actions inside of a distributed actor system. Defining the monad as a typeclass also makes it possible to use something else then *cloud-haskell* as a backend without having to rewrite any actor implementations.
 
 ## Actor
 
-Since akka is not written in a pure functional language each actor can also invoke any other piece of code. This implicit capability is very useful for defining real world systems. So we have to provide a way to do something like this as well if we want to use this framework in a real world situation. Invoking any piece of code also includes managing the actor system itself. For example stopping it all together, which also turns out to be very useful. 
+Since Akka is not written in a pure functional language, each actor can also invoke any other piece of code. The implicit capability to perform arbitrary actions is very useful for defining real world systems. So we have to provide a way to perform `IO` actions as well if we want to use this framework in a real world situation. Actors may also want to manage the actor system itself in some capacities that exceed the actor model axioms. For example stopping it all together, which also turns out to be very useful. 
 
 We need a way to identify specific actors at compile time to be able to reason about them. The best way to do so is by defining types for actors. Since Actors have a state this state type will be the type we will identify the actor with. We could have chosen the message type but the state type seems more descriptive. 
 
@@ -222,7 +222,7 @@ data SomeActor = SomeActor
 
 Note that we derive `Generic` and `Binary`. This allows the state of an actor to be serialized. 
 
-An actor now has to implement the `Actors` type class. On this typeclass we can ensure that the actor state is serializable and can be printed in human readable form to be included in error messages and log entries.
+An actor now has to implement the `Actors` type class. On this typeclass we can ensure that the actor state is serializable and can be printed in human-readable form to be included in error messages and log entries.
 
 ```haskell
 class (Show a, Binary a) => Actor a where
@@ -247,7 +247,7 @@ Now the class header can be changed to:
 class (RichData a, RichData (Message a)) => Actor a where
 ```
 
-Instead of a constraint type alias we could also have used a new class and provided a single `instance (Show a, Binary a) => RichData a`. This would allow `RichData` to be partially applied. There is currently no need to do this though.
+Instead of a constraint type alias we could also have used a new class and provided a single `instance (Show a, Binary a) => RichData a`. This would allow `RichData` to be partially applied. There is currently no need to do this.
 
 Next we have to define a way for actors to handle Messages.
 
@@ -428,11 +428,11 @@ The type for an actor system that starts with `A` would have to be `'Node A '[No
 
 Since any running actor system has to be finite we can use the fact that we can represent finite paths inside an actor system for our actor references. We can parametrize our actor references by the path of the actor that it refers to.
 
-Unfortunately creating references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach though. Firstly we lose some typesafty since we can now construct actor references to actors that we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference then requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
+Unfortunately creating references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach. Firstly we lose some typesafty since we can now construct actor references to actors that we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference then requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
 
 The feature to compose actor references was removed because of these reasons. Actor references may now only be obtained from the `create` function and `self` for the current actor.
 
-Typefamilies created for this feature are still useful though. They allow type level computation on specific groups of actors deep inside of an actor system.
+Typefamilies created for this feature are still useful. They allow type level computation on specific groups of actors deep inside of an actor system.
 
 #### Implementation specific references
 
@@ -490,7 +490,7 @@ instance Actor Sender where
     ...
 ```
 
-This way limits the actor type of the receiver to be a single concrete type though. In particular we have to know the type of the actor (Receiver in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Receiver.
+This way limits the actor type of the receiver to be a single concrete type. In particular we have to know the type of the actor (Receiver in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Receiver.
 
 
 ```haskell
@@ -541,13 +541,13 @@ instance Actor Sender
 
 Solving the problem of sending generic actor references has a huge problem though. Using existential quantification prevents `AnswerableMessage` from being serialized. Serializeability is a core requirement for messages though.
 
-I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitrary types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase though. Sending `ActorRef` values directly is the only possible way for now.
+I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitrary types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase. Sending `ActorRef` values directly is the only possible way for now.
 
 ### Flexibility and Effects
 
 By defining `ActorContext` as a datatype we force any environment to use exactly this datatype. This is problematic since actors now can only perform their three actor actions. `ActorContext` isn't flexible enough to express anything else. We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance. This would defeat our goal to be able to reason about actors though since we could now perform any `IO` we wanted.
 
-Luckily Haskells typesystem is expressive enough to solve this problem. Due to this expressiveness there is a myriad of different solutions for this problem though. Not all of them are viable of course. We will take a look at two approaches that integrate well into existing programming paradigms used in Haskell and other functional languages.
+Luckily Haskells typesystem is expressive enough to solve this problem. Due to this expressiveness there is a myriad of different solutions for this problem. Not all of them are viable of course. We will take a look at two approaches that integrate well into existing programming paradigms used in Haskell and other functional languages.
 
 Both approaches involve associating what additional action an actor can take with the `Actor` instance definition. This is done by creating another associated typefamily in `Actor`. The value of this typefamily will be a list of types that identify what additional actions can be performed. What this type will be depends on the chosen approach. The list in this case will be an actual Haskell list but promoted to a kind. This is possible through the `DataKinds` extension. 
 
