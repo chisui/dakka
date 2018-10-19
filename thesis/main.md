@@ -228,14 +228,14 @@ An actor now has to implement the `Actors` type class. On this typeclass we can 
 class (Show a, Binary a) => Actor a where
 ```
 
-The first member of this class will be a typefamily that maps a given actor state type (actor type for short) to a message type this actor can handle. If the message type is not specified it is assumed that the actor only understands `()` as a message.
+The first member of this class will be a type family that maps a given actor state type (actor type for short) to a message type this actor can handle. If the message type is not specified, it is assumed that the actor only understands `()` as a message.
 
 ```haskell
   type Message a
   type Message a = ()
 ```
 
-To be able to send these messages around in a distributed system we have to ensure that we can send them around. They have to essentially fulfill the same constraints as the actor type itself. For this we create a constraint type alias (possible through the language extension `ConstraintKinds`):
+To be able to send these messages around in a distributed systems we have to ensure that they are serializable. They have to fulfill the same constraints as the actor type itself. For this we create a constraint type alias (through the language extension `ConstraintKinds`):
 
 ```haskell
 type RichData a = (Show a, Binary a)
@@ -247,7 +247,7 @@ Now the class header can be changed to:
 class (RichData a, RichData (Message a)) => Actor a where
 ```
 
-Instead of a constraint type alias we could also have used a new class and provided a single `instance (Show a, Binary a) => RichData a`. This would allow `RichData` to be partially applied. There is currently no need to do this.
+Instead of a constraint type alias we could also have used a new class and provided a single `instance (Show a, Binary a) => RichData a`. This would have allowed `RichData` to be partially applied. There is currently no need to do this.
 
 Next we have to define a way for actors to handle Messages.
 
@@ -267,13 +267,13 @@ Additionally we have to provide a start state the actor has when it is first cre
 
 ## ActorContext
 
-We need a way for actors to perform their actor operations. To recall actors may
+We need a way for actors to perform their actor operations. As a reminder, the three actor operations are: 
 
 1. Send a finite number of messages to other actors.
 2. Create a finite number of new actors.
 3. Designate the behavior to be used for the next message it receives. In other words change their internal state.
 
-The most straight forward way to implement these actions would be to use a monad transformer for each action. Creating and sending could be modeled with `WriterT` and changing the internal state through `StateT`. The innermost monad wont be a transformer of course.
+The most straight forward way to implement these actions would be to use a monad transformer for each action. Creating and sending could be modeled with `WriterT` and changing the internal state through `StateT`.
 
 But here we encounter several issues:
 
@@ -283,7 +283,7 @@ But here we encounter several issues:
 
 The first issue can be solved by adding the actor type to `ActorContext` as a type parameter.
 
-The second and third are a little trickier. To be able to send a message in a type safe way we need to retain the actor type. But if we would make the actor type explicit in the `WriterT` type we would only be able to send messages to actors of that exact type. Luckily there is a way to get both. Using the language extension `ExistentialQuantification` we can capture the actor type with a constructor without exposing it. To retrieve the captured type you just have to pattern match on the constructor. We can also use this to close over the actor type in the create case. With this we can create a wrapper for a send and create actions:
+The second and third issue are a little trickier. To be able to send a message in a type safe way, we need to retain the actor type. If we would make the actor type explicit in the `WriterT` type though, we would only be able to send messages to actors of that exact type. Luckily there is a way to get both. Using the language extension `ExistentialQuantification` we can capture the actor type with a constructor without exposing it. To retrieve the captured type you have to pattern match on the constructor. We can also use `ExistentialQuantification` to close over the actor type in the create case. With this technique we can create a wrapper for send and create actions:
 
 ```haskell
 data SystemMessage
@@ -292,9 +292,9 @@ data SystemMessage
   deriving (Eq, Show)
 ```
 
-`ActorRef` is some way to identify an actor inside a actor system. We will define it later
+`ActorRef` provides some way to identify an actor inside a actor system we will define later.
 
-Unfortunately we can't derive `Generic` for data types that use existential quantification and thus can't get a `Binary` instance for free. But as we will later discover we do not need to serialize values of `SystemMessage` so this is fine for now.
+Unfortunately we can't derive `Generic` for data types that use existential quantification and thus can't get a `Binary` instance for free. But as I will show later we do not need to serialize values of `SystemMessage` so this is fine for now.
 
 With all this we can define `ActorContext` as follows:
 
