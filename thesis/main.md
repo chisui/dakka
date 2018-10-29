@@ -22,6 +22,8 @@ Runtime components of this actor framework should be serializable. Serializeabil
 
 ## Result
 
+I explored many aspects of Haskells typesystem and dependent typing features and how to apply them to the demain of Actor frameworks. As a result I created an API that fulfills many of the target features. Actors implemented in the created API can be executed in a test environment and to a certain degree in a destributed environment. Since the main focus was the API and how to constraint actors written with it, the runtime aspect is not yet fully implemented.
+
 # Fundamentals
 
 ## Actor Model
@@ -321,7 +323,7 @@ send :: Actor a => ActorRef a -> Message a -> ActorContext b ()
 send ref msg = tell [Send ref msg]
 ```
 
-Notice that the resulting `ActorContext` doesn't have `a` as its actor type but rather some other type `b`. This is because these two types don't have to be the same one. `a` is the type of actor the message is sent to and `b` is the type of actor we are describing the behavior of.The `send` function does not have a `Actor b` constraint since this would needlessly restrict the use of the function itself. When defining an actor it is already ensured that whatever `b` is it will be an `Actor`.
+Notice that the resulting `ActorContext` doesn't have `a` as its actor type but rather some other type `b`. `a` is the type of actor the message is sent to and `b` is the type of actor which behavior is beeing described. The `send` function does not have a `Actor b` constraint since this would needlessly restrict the use of the function itself. When defining an actor it is already ensured that whatever `b` is, it will be an `Actor`.
 
 We can also provide an akka-style send operator as a convenient alias for `send`:
 
@@ -369,14 +371,14 @@ To `ActorContext`.
 
 #### Composing references
 
-If we assume that a reference to an actor is represented by the actors path relative to the actor system root we could in theory compose actor references or even create our own. To do this in a typesafe manner we need to know what actors an actor may create. For this we add a new type family to the `Actor` class.
+If we assume that a reference to an actor is represented by the actors path relative to the actor system root, we could in theory compose actor references or even create our own. To do this in a typesafe manner we need to know what actors an actor may create. For this we add a new type family to the `Actor` class.
 
 ```haskell
     type Creates a :: [*]
     type Creates a = '[]
 ```
 
-This type family is of kind `[*]` so it's a list of all actor types this actor can create. We additionally provide a default that is the empty list. So if we don't override the `Creates` type family for a specific actor we assume that this actor does not create any other actors.
+This type family is of kind `[*]` so it's a list of all actor types this actor can create. We additionally provide a default that is the empty list. So if we don't override the `Creates` type family for a specific actor, we assume that this actor does not create any other actors.
 
 We can now also use this typefamily to enforce this assumption on the `create'` and `create` functions.
 
@@ -384,7 +386,7 @@ We can now also use this typefamily to enforce this assumption on the `create'` 
 create' :: (Actor b, Elem b (Creates a)) => Proxy b -> ActorContext a ()
 ```
 
-Where `Elem` is a typefamily of kind `k -> [k] -> Constraint` that works the same as `elem` only on the type level.
+Where `Elem` is a type family of kind `k -> [k] -> Constraint` that works the same as `elem` only on the type level.
 
 ```haskell
 type family Elem (e :: k) (l :: [k]) :: Constraint where
@@ -394,7 +396,7 @@ type family Elem (e :: k) (l :: [k]) :: Constraint where
 
 There are three things to note with this type family:
 
-1. It is partial. It has no pattern for the empty list. Since it's kind is `Constraint` this means the constraint isn't met if we would enter that case either explicitly or through recursion.
+1. It is partial. It has no pattern for the empty list. Since it's kind is `Constraint` this means, the constraint isn't met if we would enter that case either explicitly or through recursion.
 2. The first pattern of `Elem` is non-linear. That means that a variable appears twice. `e` appears as the first parameter and as the first element in the list. This is only permitted on type families in Haskell. Without this feature it would be quite hard to define this type family at all.
 3. We leverage that n-tuples of `Constraints` are `Constraints` themselves. In this case `()` can be seen as an 0-tuple and thus equates to `Constraint` that always holds.
 
@@ -410,7 +412,7 @@ type family AllActorsImplementHelper (c :: * -> Constraint) (as :: [*]) :: Const
 
 We can also enumerate all actor types in a given actor system.
 
-What we can't do unfortunately is create a type of kind `Data.Tree` that represents the whole actor system since it may be infinite. The following example shows this.
+What we can't do unfortunately is to create a type of kind `Data.Tree` that represents the whole actor system since it may be infinite. The following example shows this.
 
 ```haskell
 data A = A
@@ -428,7 +430,7 @@ The type for an actor system that starts with `A` would have to be `'Node A '[No
 
 Since any running actor system has to be finite we can use the fact that we can represent finite paths inside an actor system for our actor references. We can parametrize our actor references by the path of the actor that it refers to.
 
-Unfortunately creating references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach. Firstly we lose some typesafty since we can now construct actor references to actors that we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference then requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
+Unfortunately creating actor references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them in order to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach. Firstly we lose some typesafty since we can now construct actor references to actors for which we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference would requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
 
 The feature to compose actor references was removed because of these reasons. Actor references may now only be obtained from the `create` function and `self` for the current actor.
 
@@ -770,6 +772,8 @@ Dependent types are a powerful tool in Haskell. Unfortunately their usabillity i
 As a result of this I opted to reduce the usage of dependent types in my code and do without the *singletons* library alltogether. Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were extremely useful 
 
 ## Cloud Haskell
+
+Big parts of the backend for the created API were implemented for cloud-haskell. The implementation was very straight forward for the most part since cloud haskell provides similar primitives to the API itself. Parts that required the serialization of polymorphic values were not that easily implemented. In fact the process of serialization itself is a big issue for cloud-haskell as well and requires a big amount of work, more than would be feasable for this thesis. As far as I can tell there shouldn't be any conceptual issues
 
 Since most of the effort went into creating a typed interface rather then the actual execution of it I can't comment on how cloud haskell actually performes as a backend for the created interface.
 
