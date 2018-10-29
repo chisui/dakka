@@ -361,7 +361,7 @@ References of this kind can't be be created by the user since you shouldn't be a
 create :: forall a. Actor a => ActorContext b (ActorRef a)
 ```
 
-Additionally it would be useful for actors to have a way to get a reference to themselves. We can achieve this by adding:
+Additionally it would be useful for actors to have a way to get a reference to themselves. We can give actors a way to refer to themselves by adding:
 
 ```haskell
 self :: ActorContext a (ActorRef a)
@@ -371,16 +371,16 @@ To `ActorContext`.
 
 #### Composing references
 
-If we assume that a reference to an actor is represented by the actors path relative to the actor system root, we could in theory compose actor references or even create our own. To do this in a typesafe manner we need to know what actors an actor may create. For this we add a new type family to the `Actor` class.
+If we assume that a reference to an actor is represented by the actors path, relative to the actor system root, we could in theory compose actor references or even create our own. To allow for actor reference composition in a typesafe manner we need to know what actors an actor may create. To expose which actors an actor may create, we add a new type family to the `Actor` class.
 
 ```haskell
     type Creates a :: [*]
     type Creates a = '[]
 ```
 
-This type family is of kind `[*]` so it's a list of all actor types this actor can create. We additionally provide a default that is the empty list. So if we don't override the `Creates` type family for a specific actor, we assume that this actor does not create any other actors.
+The type family `Create` has the kind `[*]`, which represents a list of all actor types actor `a` can create. We additionally provide a default that is the empty list. So if we don't override the `Creates` type family for a specific actor, we assume that this actor does not create any other actors.
 
-We can now also use this typefamily to enforce this assumption on the `create'` and `create` functions.
+We can now also use the `Create` typefamily to enforce the assumption on the `create'` and `create` functions that the type of any actor created by an actor has to be present in the `Create a` list.
 
 ```haskell
 create' :: (Actor b, Elem b (Creates a)) => Proxy b -> ActorContext a ()
@@ -394,13 +394,13 @@ type family Elem (e :: k) (l :: [k]) :: Constraint where
     Elem e (a ': as) = Elem e as
 ```
 
-There are three things to note with this type family:
+There are three things to note with The `Elem` type family:
 
 1. It is partial. It has no pattern for the empty list. Since it's kind is `Constraint` this means, the constraint isn't met if we would enter that case either explicitly or through recursion.
 2. The first pattern of `Elem` is non-linear. That means that a variable appears twice. `e` appears as the first parameter and as the first element in the list. This is only permitted on type families in Haskell. Without this feature it would be quite hard to define this type family at all.
 3. We leverage that n-tuples of `Constraints` are `Constraints` themselves. In this case `()` can be seen as an 0-tuple and thus equates to `Constraint` that always holds.
 
-The `Creates` typefamily is incredibly useful for anything we want to do that concerns the hierarchy of the typesystem. For example we could ensure that all actors in a given actor system fulfill a certain constraint. 
+The `Creates` typefamily is incredibly useful for defining assumtions that concern the hierarchy of the actorsystem. For example we can formulate an assumtion that states that all actors in a given actor system fulfill a certain constraint.
 
 ```haskell
 type family AllActorsImplement (c :: * -> Constraint) (a :: *) :: Constraint where
@@ -412,7 +412,7 @@ type family AllActorsImplementHelper (c :: * -> Constraint) (as :: [*]) :: Const
 
 We can also enumerate all actor types in a given actor system.
 
-What we can't do unfortunately is to create a type of kind `Data.Tree` that represents the whole actor system since it may be infinite. The following example shows this.
+What we can't do unfortunately is to create a type of kind `Data.Tree` that represents the whole actor system since it may be infinite. The tree representation of the following example would be infinite.
 
 ```haskell
 data A = A
@@ -426,27 +426,44 @@ instance Actor B where
     ...
 ```
 
-The type for an actor system that starts with `A` would have to be `'Node A '[Node B '[Node A '[...]]]`. What we can represent as a type though is any finite path inside this tree.
+The type for an actor system that starts with `A` would have to be `'Node A '[Node B '[Node A '[...]]]`. We can represent any finite path inside this tree as a type.
 
 Since any running actor system has to be finite we can use the fact that we can represent finite paths inside an actor system for our actor references. We can parametrize our actor references by the path of the actor that it refers to.
 
-Unfortunately creating actor references yourself isn't as useful as one might expect. The actor type is not sufficient to refere to a given actor. Since an actor may create multiple actors of the same type you also need a way to differenciate between them in order to reference them directly. The easiest way would be to order created actors by creation time and use an index inside the resulting list. There are two problems with this approach. Firstly we lose some typesafty since we can now construct actor references to actors for which we can not confirm that they exist at compile time. Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor. We could take the possibility of actors dying into account which would result in essentially giving each immidiate child actor an uniquie identifier. When composing an actor reference would requires the knowledge of that exact identifier which is essentially the same as knowing the actor reference already.
+Unfortunately creating actor references yourself isn't as useful as one might expect.
+The actor type is not sufficient to refer to a given actor.
+Since an actor may create multiple actors of the same type you also need a way to differenciate between them in order to reference them directly.
+The easiest way would be to order created actors by creation time and use an index inside the resulting list.
+There are two problems with this approach.
+Firstly we lose some typesafty since we can now construct actor references to actors for which we can not confirm that they exist at compile time.
+Secondly this index would not be unambiguous since an older actor may die and thus an index inside the list of child actors would point to the wrong actor.
+We could take the possibility of actors dying into account by giving each immidiate child actor an uniquie identifier.
+Composing an actor reference would require the knowledge of the exact identifier in that case.
+Having to know the unique identify for an actor to create an actor reference to it would make composition unfeasible.
 
-The feature to compose actor references was removed because of these reasons. Actor references may now only be obtained from the `create` function and `self` for the current actor.
+I decided to remove the ability to compose actor references since it would impose to many restrictions onto the form that actor references could take.
+Furthermore the usabillity would be limited anyway.
 
-Typefamilies created for this feature are still useful. They allow type level computation on specific groups of actors deep inside of an actor system.
+Typefamilies created for in the process of implementing composition are still useful for other purposes.
+These typefamilies allow type level computation on specific groups of actors deep inside of an actor system.
 
 #### Implementation specific references
 
-Different implementations of `ActorContext` might want to use different datatypes to refer to actors. Since we don't provide a way for the user to create references themselves we don't have to expose the implementation of these references. 
+Different implementations of `ActorContext` might want to use different datatypes to refer to actors.
+Since we don't provide a way for the user to create references themselves we don't have to expose the implementation of these references. 
 
-The most obvious way to achieve this is to associate a given `ActorContext` implementation with a specific reference type. This can be done using an additional type variable on the class, a type family or a data family. Here the data family seems the best choice since it's injective. The injectivity allows us to not only know the reference type from from an `ActorContext` implementation but also the other way round.
+The most obvious way to achieve this is to associate a given `ActorContext` implementation with a specific reference type.
+This can be done using an additional type variable on the class, a type family or a data family.
+Here the data family seems the best choice since it's injective.
+The injectivity allows us to not only know the reference type from from an `ActorContext` implementation but also the other way round.
 
 ```haskell
     data CtxRef m :: * -> *
 ```
 
-Additionally we have to add some constraints to `CtxRef` since we need to be able to serialize it, equality and a way to show them would also be nice. For this we can reuse the `RichData` constraint. 
+Additionally we have to add some constraints to `CtxRef`.
+Since we need to be able to serialize `CtxRef`, equality and a way to show them would also be nice.
+To ensure that `CtxRef` is serializable we can reuse the `RichData` constraint. 
 
 ```haskell
 class (RichData (CtxRef m)), ...) => ActorContext ... where
@@ -454,13 +471,21 @@ class (RichData (CtxRef m)), ...) => ActorContext ... where
 
 In our simple implementation I'm using an single `Word` as a unique identifier but we can't assume that every implementation wants to use it.
 
-Now we have another problem though. Messages should be able to include actor references. If the type of these references now depends on the `ActorContext` implementation we need a way for messages to know this reference type. We can achieve this by adding the actor context as a parameter to the `Message` type family.
+Now we have another problem though.
+Messages should be able to include actor references.
+If the type of these references now depends on the `ActorContext` implementation we need a way for messages to know this reference type.
+We can achieve this by adding the actor context as a parameter to the `Message` type family.
 
 ```haskell
   type Message a :: (* -> *) -> *
 ```
 
-Here we come in a bind because of the way we chose to define `ActorContext` unfortunately. The problem is the functional dependency in `ActorContext a m | m -> a`. It states that we know `a` if we know `m`. This means that if we expose `m` to `Message` the message is now bound to a specific `a`. This is problematic though since we only want to expose the type of reference not the actor type of the current context to the `Message`. Doing so would bloat every signature that wants to move a message from one context to another with equivalence constraints like 
+Here we come in a bind because of the way we chose to define `ActorContext`.
+The functional dependency in `ActorContext a m | m -> a` forces us to create unwieldy typesignatures in this case.
+It states that we know `a` if we know `m`.
+This means that if we expose `m` to `Message` the message is now bound to a specific `a`.
+This is problematic though since we only want to expose the type of reference, not the actor type of the current context to the `Message`.
+Doing so would bloat every signature that wants to move a message from one context to another with equivalence constraints like.
 
 ```haskell
 forall a b m n. (ActorContext a m, ActorContext b n, Message a m ~ Message b n) => ...
@@ -468,7 +493,11 @@ forall a b m n. (ActorContext a m, ActorContext b n, Message a m ~ Message b n) 
 
 This is cumbersome and adds unnecessary complexity.
 
-What we might do instead is add the reference type itself as a parameter to `Message`. This alleviates the problem only a little bit though since we need the actual `ActorContext` type to retrieve the concrete reference type. So we would only delay the constraint dance and move it a little bit. These constraints meant many additional type parameters to types and functions that don't actually care about them. Error messages for users would also suffer.
+What we might do instead is add the reference type itself as a parameter to `Message`.
+This alleviates the problem only a little bit, since we need the actual `ActorContext` type to retrieve the concrete reference type.
+So we would only delay the constraint dance and move it a little bit.
+These constraints would mean many additional type parameters to types and functions that don't actually care about them.
+Error messages for users would also suffer.
 
 In the end I decided to ditch the idea of `ActorContext` implementation specific reference types. And went another route.
 
@@ -478,7 +507,10 @@ Since actor references have to be serializable anyway we can represent them by a
 newtype ActorRef a = ActorRef ByteString
 ```
 
-This might go a little against our ideal that we want to keep the code as typesafe as possible but it's not as bad as you might think. Firstly other datatypes that might have taken the place of `ByteString` wouldn't be any safer. We can still keep the user from being able to create references by themselves by not exporting the `ActorRef` constructor. We could expose it to `ActorContext` implementers through an internal package.
+This might go a little against our ideal that we want to keep the code as typesafe as possible but it's not as bad as you might think.
+Firstly other datatypes that might have taken the place of `ByteString` wouldn't be any safer. 
+We can still keep the user from being able to create references by themselves by not exporting the `ActorRef` constructor.
+We could expose it to `ActorContext` implementers through an internal package.
 
 #### Sending references 
 
