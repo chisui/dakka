@@ -861,13 +861,24 @@ I demonstrated that it is possible to create an actor framework in Haskell that 
 
 ## Dependent types in Haskell
 
-Dependent types are a powerful tool in Haskell. Unfortunately their usabillity is somewhat limited since they aren't supported natively. The lack of native support doesn't make it's use impossible but prevelent usage cumbersome. Promotion of values to types and demotion from types to values has to be done manually. For promotion and demotion there is the library *singletons*, which is written by the author of the `TypeInType` language extension, that is central to dependent types in Haskell. The *singletons* way to promote functions, by generating corresponding typefamilies for them but debugging these generated typefamilies is extremely hard. When there is an error in the types GHC either just has the names of the generated typefamilies, that are not very informative or there is just a statement that two types don't unify without a information on how GHC got those two types. These debugging problems make the usage of the *singletons* library and dependent types in general tedious for library authors. The effects are even worse for users of libraries that heavily leverage *singletons* that do not have a good understanding of that library or dependent types since they might get the same kind of cryptic errors unless the library author takes extra steps and exports special interface types that produce more readable errors. 
+Dependent types are a powerful tool in Haskell. Unfortunately their usabillity is somewhat limited since they aren't supported natively.
+The lack of native support doesn't make it's use impossible but prevelent usage cumbersome.
+Promotion of values to types and demotion from types to values has to be done manually.
+For promotion and demotion there is the library *singletons*, which is written by the author of the `TypeInType` language extension, that is central to dependent types in Haskell.
+The *singletons* way to promote functions, by generating corresponding typefamilies for them but debugging these generated typefamilies is extremely hard. When there is an error in the types GHC either just has the names of the generated typefamilies, that are not very informative or there is just a statement that two types don't unify without a information on how GHC got those two types.
+These debugging problems make the usage of the *singletons* library and dependent types in general tedious for library authors.
+The effects are even worse for users of libraries that heavily leverage *singletons* that do not have a good understanding of that library or dependent types since they might get the same kind of cryptic errors unless the library author takes extra steps and exports special interface types that produce more readable errors. 
 
-As a result of this I opted to reduce the usage of dependent types in my code and do without the *singletons* library alltogether. Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were extremely useful 
+As a result of this I opted to reduce the usage of dependent types in my code and do without the *singletons* library alltogether.
+Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were extremely useful.
 
 ## Cloud Haskell
 
-Big parts of the backend for the created API were implemented for cloud-haskell. The implementation was very straight forward for the most part since cloud haskell provides similar primitives to the API itself. Parts that required the serialization of polymorphic values were not that easily implemented. In fact the process of serialization itself is a big issue for cloud-haskell as well and requires a big amount of work, more than would be feasable for this thesis. As far as I can tell there shouldn't be any conceptual issues
+Big parts of the backend for the created API were implemented for cloud-haskell.
+The implementation was very straight forward for the most part since cloud haskell provides similar primitives to the API itself.
+Parts that required the serialization of polymorphic values were not that easily implemented.
+In fact the process of serialization itself is a big issue for cloud-haskell as well and requires a big amount of work, more than would be feasable for this thesis.
+As far as I can tell there shouldn't be any conceptual issues.
 
 Since most of the effort went into creating a typed interface rather then the actual execution of it I can't comment on how cloud haskell actually performes as a backend for the created interface.
 
