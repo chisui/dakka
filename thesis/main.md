@@ -497,17 +497,18 @@ What we might do instead is add the reference type itself as a parameter to `Mes
 This alleviates the problem only a little bit, since we need the actual `ActorContext` type to retrieve the concrete reference type.
 So we would only delay the constraint dance and move it a little bit.
 These constraints would mean many additional type parameters to types and functions that don't actually care about them.
-Error messages for users would also suffer.
+Compile errors would also come more cluttered, without adding useful information to the user. 
 
-In the end I decided to ditch the idea of `ActorContext` implementation specific reference types. And went another route.
+Due to all of the stated concerns, I decided against the idea of `ActorContext` implementation specific reference types.
 
+Instead of trying to create different representations for actor references I chose to represent them using a `ByteString`.
 Since actor references have to be serializable anyway we can represent them by a `ByteString`.
 
 ```haskell
 newtype ActorRef a = ActorRef ByteString
 ```
 
-This might go a little against our ideal that we want to keep the code as typesafe as possible but it's not as bad as you might think.
+This might go a little against our ideal, to keep the code as typesafe as possible, but in this case the trade off is acceptable.
 Firstly other datatypes that might have taken the place of `ByteString` wouldn't be any safer. 
 We can still keep the user from being able to create references by themselves by not exporting the `ActorRef` constructor.
 We could expose it to `ActorContext` implementers through an internal package.
@@ -516,7 +517,7 @@ We could expose it to `ActorContext` implementers through an internal package.
 
 A core feature that is necessary for an actor system to effectively communicate is the ability to send actor references as messages to other actors.
 
-The most trivial case would be that the message to actor is an actor reference itself.
+The most trivial case would be that the message to the actor is an actor reference itself.
 
 ```haskell
 instance Actor Sender where
@@ -524,25 +525,32 @@ instance Actor Sender where
     ...
 ```
 
-This way limits the actor type of the receiver to be a single concrete type. In particular we have to know the type of the actor (Receiver in the following) when defining the actor handling the reference (Sender in the following). So we would like this reference type to be more generic. A simple way to do this is to add a type parameter to the Sender that represents the Receiver.
+This way limits the actor type of the receiver to be a single concrete type.
+In particular we have to know the type of the actor (Receiver in the following) when defining the actor that handles the reference (Sender in the following).
+So we would like this reference type to be more generic.
+A simple way to do this is to add a type parameter to the Sender that represents the Receiver.
 
 
 ```haskell
 instance (Actor a, c a) => Actor (Sender a) where
-    type Message (Sender a) = a
+    type Message (Sender a) = ActorRef a
     ...
 ```
 
-`c` here can take any constraint that the Receiver actor has to fulfill as well. This is more generic but we `a` still represents a concrete type at runtime. The way this is normally done in Haskell is by extracting the commonalities of all Receiver types into a typeclass and ensure that all referenced actors implement that typeclass.
+`c` may take any constraint that the Receiver actor has to fulfill as well. 
+This is more generic but `a` still represents a concrete type at runtime.
+The way this is normally done in Haskell is by extracting the commonalities of all Receiver types into a typeclass and ensure that all referenced actors implement that typeclass.
 
 ```haskell
 class Actor a => Reciever a
 instance Reciever a => Actor (Sender a) where
-    type Message (Sender a) = a
+    type Message (Sender a) = ActorRef a
     ...
 ```
 
-Although this is just a variation on the previous way since we only consolidated `c` into the `Reciever` class. Unfortunately we can't use `forall` in constraint contexts (yet; see `QuantifiedConstraints`). To get around this we can create a new message type that encapsulates the constraint like this:
+This is a variation on the previous implementation, since we only consolidated `c` into the `Reciever` class.
+Unfortunately we can't use `forall` in constraint contexts (yet; see `QuantifiedConstraints`).
+To get around this restriction we can create a new message type that encapsulates the constraint like this:
 
 ```haskell
 data AnswerableMessage c = forall a. (Actor a, c a) => AnswerableMessage (ActorRef a)
@@ -557,7 +565,10 @@ instance Actor Sender where
     ...
 ```
 
-`Reciever` should not perform long running tasks though since that would provide a way to circumvent the actor model somewhat since the task would be performed in the context of the `Sender`. Ideally the class should only provide a way to construct a message the `Reciever` understands from a more generic type. We can express this with a typeclass like this:
+`Reciever` should not perform long running tasks, since that would provide a way to circumvent the actor model somewhat.
+Since any functions defined on `Reciever` are executed the context of the `Sender`, the message implicitly contains instructions for the `Sender` to run.
+Ideally the class should only provide a way to construct a message the `Reciever` understands from a more generic type.
+We can express this with a typeclass like this:
 
 ```haskell
 class Actor a => Understands m a where
@@ -573,21 +584,41 @@ instance Actor Sender
         ref ! convert someType
 ```
 
-Solving the problem of sending generic actor references has a huge problem though. Using existential quantification prevents `AnswerableMessage` from being serialized. Serializeability is a core requirement for messages though.
+Solving the problem of sending generic actor references presents a huge problem though.
+Using existential quantification prevents `AnswerableMessage` from being serialized.
+Serializeability is a core requirement for messages though.
 
-I do have an idea of how to get around this restriction but wasn't able to test it yet. To serialize arbitrary types we would need some kind of sum-type where each constructor corresponds with one concrete type. Since we can enumerate every actor type of actors inside a given actor system from the root actor we could use this to create a dynamic union type. An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package. To construct this type we need a reference to the root actor though so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily. Adding a type parameter to `Actor` or `Message` requires would require rewriting ab big chunk of the codebase. Sending `ActorRef` values directly is the only possible way for now.
+I do have an idea of how to get around this restriction but wasn't able to test it yet.
+To serialize arbitrary types we would need some kind of sum-type where each constructor corresponds with one concrete type.
+Since we can enumerate every actor type of actors inside a given actor system from the root actor, we could use this to create a dynamic union type.
+An example of a dynamic union type would be `Data.OpenUnion` from the `freer-simple` package.
+To construct this type we need a reference to the root actor, so that type has to be exposed to the actor type in some way, either as an additional type parameter to the `Actor` class or to the `Message` typefamily.
+Adding a type parameter to `Actor` or `Message` would require rewriting ab big chunk of the codebase.
+Sending `ActorRef` values directly is the only possible way for now.
 
 ### Flexibility and Effects
 
-By defining `ActorContext` as a datatype we force any environment to use exactly this datatype. This is problematic since actors now can only perform their three actor actions. `ActorContext` isn't flexible enough to express anything else. We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance. This would defeat our goal to be able to reason about actors though since we could now perform any `IO` we wanted.
+By defining `ActorContext` as a datatype, we force any environment to use exactly this datatype.
+This is problematic since actors now can only perform their three actor actions.
+`ActorContext` isn't flexible enough to express anything else.
+We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance.
+This would defeat our goal to be able to reason about actors, since we could now perform any `IO` we wanted.
 
-Luckily Haskells typesystem is expressive enough to solve this problem. Due to this expressiveness there is a myriad of different solutions for this problem. Not all of them are viable of course. We will take a look at two approaches that integrate well into existing programming paradigms used in Haskell and other functional languages.
+Luckily Haskells typesystem is expressive enough to solve this problem.
+Due to this expressiveness there is a myriad of different solutions for this problem.
+Not all of them are viable of course.
+We will take a look at two approaches that integrate well into existing programming paradigms used in Haskell and other functional languages.
 
-Both approaches involve associating what additional action an actor can take with the `Actor` instance definition. This is done by creating another associated typefamily in `Actor`. The value of this typefamily will be a list of types that identify what additional actions can be performed. What this type will be depends on the chosen approach. The list in this case will be an actual Haskell list but promoted to a kind. This is possible through the `DataKinds` extension. 
+Both approaches involve associating what additional action an actor can take with the `Actor` instance definition.
+This is done by creating another associated typefamily in `Actor`.
+The value of this typefamily will be a list of types, that identify what additional actions can be performed.
+What this type will be depends on the chosen approach.
+The list in this case will be an actual Haskell list but promoted to a kind. This is possible through the `DataKinds` extension. 
 
 #### mtl style monad classes
 
-In this approach we use mtl style monad classes to communicate additional capabilities of the actor. This is done by turning `ActorContext` into a class itself where `create` and `send` are class members and `MonadState a` is a superclass.
+In this approach we use mtl style monad classes to communicate additional capabilities of the actor. 
+This is done by turning `ActorContext` into a class itself where `create` and `send` are class members and `MonadState a` is a superclass.
 
 The associated typefamily will look like this:
 
@@ -621,15 +652,22 @@ instance Actor SomeActor where
         liftIO $ putStrLn "we can do IO action now"
 ```
 
-Since `MonadIO` is in the list of capabilities we can use its `liftIO` function to perform arbitrary `IO` actions inside the `ActorContext`.
+Since `MonadIO` is in the list of capabilities, we can use its `liftIO` function to perform arbitrary `IO` actions inside the `ActorContext`.
 
-`MonadIO` may be a bad example though since it exposes to much power to the user. What we would need here is a set of more fine grain monad classes that each only provide access to a limited set of IO operations. Examples would be Things like a network access monad class, file system class, logging class, etc. These would be useful even outside of this actor framework.
+`MonadIO` may be a bad example though since it exposes to much power to the user.
+What we would need here is a set of more fine grain monad classes, that each only provide access to a limited set of IO operations.
+Examples would be: a network access monad class, file system class, logging class, etc. 
+These would be useful even outside of this actor framework.
 
 #### the Eff monad
 
 The `Eff` monad as described in the `freer`, `freer-effects` and `freer-simple` packages is a free monad that provides an alternative way to monad classes and monad transformers to combine different effects into a single monad.
 
-A free monad in category theory is the simplest way to turn a functor into a monad. In other words it's the most basic construct for that the monad laws hold given a functor. The definition of a free monad involves a hefty portion of category theory. We will only focus on the aspect that a free monad provides a way to describe monadic operations without providing an interpretations immediately. Instead the there can be multiple ways to interpret these operations. 
+In category theory a free monad is the simplest way to turn a functor into a monad. 
+In other words it's the most basic construct for that the monad laws hold given a functor.
+The definition of a free monad involves a hefty portion of category theory.
+We will only focus on the aspect that a free monad provides a way to describe monadic operations, without providing interpretations immediately.
+Instead there can be multiple ways to interpret these operations. 
 
 When using the `Eff` monad there is only one monadic operation:
 
@@ -637,7 +675,8 @@ When using the `Eff` monad there is only one monadic operation:
 send :: Member eff effs => eff a -> Eff effs a
 ```
 
-`effs` has the kind `[* -> *]` and `Member` checks that `eff` is an element of `effs`. Every `eff` describes a set of effects. We can describe the actor operations with a GADT that can be used as effects in `Eff`:
+`effs` has the kind `[* -> *]` and `Member` checks that `eff` is an element of `effs`. Every `eff` describes a set of effects.
+We can describe the actor operations with a GADT that can be used as effects in `Eff`:
 
 ```haskell
 data ActorEff a v where
@@ -659,7 +698,7 @@ become :: Member (ActorEff a) effs => a -> Eff effs ()
 become = Freer.send . Become
 ```
 
-We could also define these operations without a new datatype using the predefined effects for `State` and `Writer`:
+We can also define these operations without a new datatype using the predefined effects for `State` and `Writer`:
 
 ```haskell
 send :: (Member (Writer [SystemMessage]) effs, Actor b) => ActorRef b -> Message b -> Eff effs ()
@@ -673,7 +712,12 @@ create = tell $ Create (Proxy @b)
 
 ## Testing
 
-One of the goals of the actor framework is testability of actors written in the framework. The main way that testability is achieved is by implementing a special `ActorContext` that provides a way to execute an actors behavior in an controlled environment. The name of this `ActorContext` is `MockActorContext`. `MockActorContext` has to provide implementations for `create`, `send` and `MonadState`. Additionally we need a way to execute a `MockActorContext`. One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
+One of the goals of the actor framework is testability of actors written in the framework.
+The main way that testability is achieved, is by implementing a special `ActorContext` that provides a way to execute an actors behavior in a controlled environment.
+The name of this `ActorContext` is `MockActorContext`.
+`MockActorContext` has to provide implementations for `create`, `send` and `MonadState`.
+Additionally we need a way to execute a `MockActorContext`.
+One way to define `MockActorContext` is using monad transformers in conjunction with `GeneralizedNewtypeDeriving`.
 
 ```haskell
 newtype MockActorContext a v = MockActorContext
@@ -691,7 +735,7 @@ newtype MockActorContext a v = MockActorContext
     )
 ```
 
-Where `CtxState` is used to keep track of actor instances that currently are in known to the context.
+Where `CtxState` is used to keep track of actor instances, that currently are known to the context.
 
 ```haskell
 data CtxState = CtxState
@@ -734,7 +778,9 @@ instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActo
     p ! m = tell [Right $ Send p m]
 ```
 
-To execute a single `MockActorContext` action all monad transformer actions have to be executed. It doesn't make sense though to export this capability directly since `CtxState` should not be visible to the user. So exported variants on the core running function construct `CtxState` values themselves.
+To execute a single `MockActorContext` action, all monad transformer actions have to be executed.
+It doesn't make sense though, to export this capability directly, since `CtxState` should not be visible to the user.
+So exported variants on the core running function construct `CtxState` values themselves.
 
 ```haskell
 runMockInternal :: forall a v. Actor a => MockActorContext a v -> ActorRef a -> CtxState -> ((v, CtxState), [SystemMessage])
@@ -743,9 +789,16 @@ runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT c
 
 ## executing in a destributed environment
 
-When executing an actor inside a destributed environment you have to take care of message passing and the actual concurrent execution. This is a hard problem. Luckily cloud-haskell already exists and provides exactly what is needed here. It is itself a Erlang-style actor framework. Although all it's messages are untyped and every actor has access to `IO`. This enables us to execute the previously defined typed actors ontop of it.
+When executing an actor inside a destributed environment, one has to take care of message passing and the actual concurrent execution.
+This is a hard problem. Luckily cloud-haskell already exists and provides exactly what is needed here.
+It is itself a Erlang-style actor framework.
+Although all it's messages are untyped and every actor has access to `IO`.
+This enables us to execute the previously defined typed actors ontop of it.
 
-As with the mock case the cetral entry point will be the `ActorContext`. All actions in cloud-haskell are inside of the `Process` monad. So we need to keep track of the actors state and access to the `Process` monad. This can be achieved using a `newtype` wrapper around `StateT` transformer of `Process`:
+As with the mock case the cetral entry point will be the `ActorContext`.
+All actions in cloud-haskell are inside of the `Process` monad.
+So we need to keep track of the actors state and access to the `Process` monad.
+This can be achieved using a `newtype` wrapper around `StateT` transformer of `Process`:
 
 ```haskell
 newtype DistributedActorContext a v
@@ -755,7 +808,8 @@ newtype DistributedActorContext a v
   deriving (Functor, Applicative, Monad, MonadState a, MonadIO)
 ```
 
-`GeneralizedNewtypeDeriving` is used to derive the normaly not derivable instances like `MonadIO`. `ActorContext` has to be implemented manually.
+`GeneralizedNewtypeDeriving` is used to derive the normaly not derivable instances like `MonadIO`.
+`ActorContext` has to be implemented manually.
 
 ```haskell
 instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (DistributedActorContext a) where
@@ -769,9 +823,10 @@ instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (Distri
 ```
 
 All we have to do to implment `self` and `(!)` is to wrap/unwrap the process id in an `ActorRef` and use the functions that `Process` gives us.
-Notice that `create'` uses `staticRunActor` instead of `runActor`. More on this in the next section
+Notice that `create'` uses `staticRunActor` instead of `runActor`.
+More on this in the next section
 
-Executing an `Actor` in this context now means dispatching a `Created` signal and continously polling for messages.
+Executing an `Actor` in this context, now means dispatching a `Created` signal and continously polling for messages.
 
 ```haskell
 runActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Process ()
@@ -783,9 +838,16 @@ runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.s
 
 ### Creating Actors
 
-Creating an `Actor` means spawning a new `Process` that executes `runActor` for that specific actor type. The problem here is that the instruction on what the `Process` should do has to be serializable. Since functions are not Serializeability in Haskell cloud-haskell provides a workaround with the *distirbuted-static* package.
+Creating an `Actor` means spawning a new `Process` that executes `runActor` for that specific actor type.
+The problem here is that the instruction on what the `Process` should do has to be serializable.
+Since functions are not Serializeability in Haskell cloud-haskell provides a workaround with the *distirbuted-static* package.
 
-It provides a way to serialize references to values and functions that are known at compiletime and compose these. This is done using a heterogeneous map that has to be manually populated with all static values that the program may encounter while running. Unfortunately there is no way to register polymorphic functions like `runActor` this way. Luckily there is a way to enumerate all actor types that exist in a given actor system and could register a version of `runActor` for each one. I wasn't able to do this though for time reasons. As the hirarchy of the actor system, described by the `Creates` typefamily is potentially infinite, the registration would have to perform cycle detection on the type level.
+It provides a way to serialize references to values and functions that are known at compiletime and compose these.
+This is done using a heterogeneous map that has to be manually populated with all static values that the program may encounter while running.
+Unfortunately there is no way to register polymorphic functions like `runActor` this way.
+Luckily there is a way to enumerate all actor types that exist in a given actor system and could register a version of `runActor` for each one.
+I wasn't able to do this though for time reasons.
+As the hirarchy of the actor system, described by the `Creates` typefamily is potentially infinite, the registration would have to perform cycle detection on the type level.
 
 As a result dakka currently hasn't the capability to run a full distributed actor system.
 
@@ -795,7 +857,7 @@ Although I do not have a runnable distributed system there are usable results in
 
 ## Actor framework
 
-I demonstrated that it is possible to create an actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the actors in it using the typesystem. 
+I demonstrated that it is possible to create an actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the actors in it, using the typesystem. 
 
 ## Dependent types in Haskell
 
