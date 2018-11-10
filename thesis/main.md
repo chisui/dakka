@@ -10,19 +10,19 @@ tags:
 
 # Introduction
 
-The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskells type system can be leveraged to improve uppon Akkas design.
-Haskell gives us many tools in its typesystem that together with Haskells purely functional nature enables us to formulate more strict constraints on Actor systems.
-To formulate these constraints I will leverage some of Haskells dependent typing features.
+The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskell's type system can be leveraged to improve uppon Akkas design.
+Haskell gives us many tools in its type system that together with Haskell's purely functional nature enables us to formulate more strict constraints on Actor systems.
+To formulate these constraints I will leverage some of Haskell's dependent typing features.
 Another focus of the thesis is the testability of code written using the created framework.
 
-I will show that leveraging Haskells advantages can be used to create an Akka like Actor framework that enables the user to express many constraints inside the typesystem itself that have to be done through documentation in Akka.
+I will show that leveraging Haskell's advantages can be used to create an Akka like Actor framework that enables the user to express many constraints inside the type system itself that have to be done through documentation in Akka.
 The implementation of the Actor framework and important design decisions will be discussed in detail.
-I will also show that exessive usage of the typesystem has some downsides that mostly relate to the maturity of Haskells dependent typing features.
+I will also show that exessive usage of the type system has some downsides that mostly relate to the maturity of Haskell's dependent typing features.
 
 ## Goals
 
-I want to create an Actor framework for Haskell that leverages the typesystem to constraint Actor behaviors to minimize unexpected sideeffects.
-The main issue the typesystem may assist in is by ensuring that only messages can be sent that can be handled by the receiving Actor.
+I want to create an Actor framework for Haskell that leverages the type system to constraint Actor behaviors to minimize unexpected sideeffects.
+The main issue the type system may assist in is by ensuring that only messages can be sent that can be handled by the receiving Actor.
 It should ideally be possible for the user to add further constraints on messages and Actors or other parts of the system as they choose.
 
 Runtime components of this Actor framework should be serializable.
@@ -33,7 +33,7 @@ These states could then also be sent to different processes or machines to migra
 
 ## Result
 
-I explored many aspects of Haskells typesystem and dependent typing features and how to apply them to the demain of Actor frameworks. 
+I explored many aspects of Haskell's type system and dependent typing features and how to apply them to the demain of Actor frameworks. 
 As a result I created an API that fulfills many of the target features. 
 Actors implemented in the created API can be executed in a test environment and to a certain degree in a destributed environment. 
 Since the main focus was the API and how to constraint Actors written with it, the runtime aspect is not yet fully implemented.
@@ -44,7 +44,7 @@ Since the main focus was the API and how to constraint Actors written with it, t
 
 The Actor Model is a way of modeling concurrent computation where the primitive of computation is called an Actor.
 A finite set of Actors that can communicate with each other is an Actor System. 
-Actors can recieve messages and are characterized by the way they respond to these Messages. 
+Actors can receive messages and are characterized by the way they respond to these Messages. 
 In Response to a message an Actor may:
 
 1. Send a finite number of messages to other Actors inside the same Actor System.
@@ -56,11 +56,13 @@ As a result of this abstractness aspects like identifying Actors inside an Actor
 
 ## Akka
 
-Akka is an implementation of the Actor Model written in Scala for the JVM.
-In Akka some design decisions were made in the implemention the Actor Model that turned out to be very useful. 
+Akka is an implementation of the Actor Model written in Scala for the Java Virtual Machine.
+Akka is not a straight implementation of the Actor Model.
+In some cases Akka deviates from the classic Actor Model, described above.
+All these change are made with care and make Akka more suited for realworld usecases.
 
 In Akka Actors are represented as classes that extend a common base class.
-When an Actor is created a new instance of the Actors class is created.
+When an Actor is created a new instance of the Actor's class is created.
 The Actor classs' constructor may require additional arguments.
 Constructor arguments have to be supplied when an Actor is created.
 Actor classes have to provide an initial `receive` property which represents the Actors inital behavior.
@@ -105,7 +107,7 @@ Cloud Haskell solves the function serialization problem through the `distributed
 ## Dependent Typing
 
 A dependent type is a type that depends on a value. 
-Dependent types are a way to express relationships between values inside of a typesystem. 
+Dependent types are a way to express relationships between values inside of a type system. 
 The canonic example for dependent types is a length indexed vector. 
 A length indexed vector is a list which length is derivable from its type. 
 This can be defined as a Haskell GADT:
@@ -133,7 +135,7 @@ Since I ended up not using the *singletons* library I wont go into detail descri
 
 Modern Haskell development involves many language features that are not present in the base language of *Haskell2010*. 
 These features have to explicitly be enabled by enabling language extensions. 
-Especially working with dependent types and using more advanced features of Haskells typesystem require many of these language extensions. 
+Especially working with dependent types and using more advanced features of Haskell's type system require many of these language extensions. 
 Language extensions are enabled using `LANGUAGE` pragmas at the beginning of the file for which the extension should be enabled. 
 
 - `DataKinds`: Allows data types to be promoted to kinds and value constructors to types. 
@@ -300,7 +302,7 @@ Actors have to implement a typeclass `Actor a` where `a` is the type we can use 
 The `Actor` class has a single function called `behavior`, which describes the behavior of the Actor. 
 What kind of messages an Actor can handle and what kind of Actors it may create in response has to be encoded in some way as well. 
 
-The monad which models an Actors action is also a typeclass, that has roughly the form `Mondad m => ActorContext m`. 
+The monad which models an Actors action is also a typeclass, that has roughly the form `Monad m => ActorContext m`. 
 This `ActorContext` is an *mtl* style monad class, which makes it possible to have different implementations of Actor systems at once. 
 This makes it possible for example to create one implementation that is meant for testing Actors and another one that actually performs these actions inside of a distributed Actor system. 
 Defining the monad as a typeclass also makes it possible to use something else then *cloud-haskell* as a backend without having to rewrite any Actor implementations.
@@ -662,7 +664,7 @@ The most trivial case would be that the message to the Actor is an Actor referen
 
 ```haskell
 instance Actor Sender where
-    type Message Seder = ActorRef Reciever
+    type Message Sender = ActorRef Reciever
     ...
 ```
 
@@ -745,7 +747,7 @@ This is problematic since Actors now can only perform their three Actor actions.
 We could change the definition of `ActorContext` to be a monad transformer over `IO` and provide a `MonadIO` instance.
 This would defeat our goal to be able to reason about Actors, since we could now perform any `IO` we wanted.
 
-Luckily Haskells typesystem is expressive enough to solve this problem.
+Luckily Haskell's type system is expressive enough to solve this problem.
 Due to this expressiveness there is a myriad of different solutions for this problem.
 Not all of them are viable of course.
 We will take a look at two approaches that integrate well into existing programming paradigms used in Haskell and other functional languages.
@@ -998,7 +1000,7 @@ Although I do not have a runnable distributed system there are usable results in
 
 ## Actor framework
 
-I demonstrated that it is possible to create an Actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the Actors in it, using the typesystem. 
+I demonstrated that it is possible to create an Actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the Actors in it, using the type system. 
 
 ## Dependent types in Haskell
 
@@ -1011,7 +1013,7 @@ These debugging problems make the usage of the *singletons* library and dependen
 The effects are even worse for users of libraries that heavily leverage *singletons* that do not have a good understanding of that library or dependent types since they might get the same kind of cryptic errors unless the library author takes extra steps and exports special interface types that produce more readable errors. 
 
 As a result of this I opted to reduce the usage of dependent types in my code and do without the *singletons* library alltogether.
-Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were extremely useful.
+Even though they are not dependent types many of the more advanced type-level-computation features Haskell provides were useful.
 
 ## Cloud Haskell
 
