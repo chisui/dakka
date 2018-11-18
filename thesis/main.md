@@ -10,7 +10,7 @@ tags:
 
 # Introduction
 
-The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskell's type system can be leveraged to improve uppon Akkas design.
+The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskell's type system can be leveraged to improve upon Akkas design.
 Haskell gives us many tools in its type system that together with Haskell's purely functional nature enables us to formulate more strict constraints on Actor systems.
 To formulate these constraints I will leverage some of Haskell's dependent typing features.
 Another focus of the thesis is the testability of code written using the created framework.
@@ -102,8 +102,8 @@ Since Erlang-style concurrency is implemented using the Actor model, Cloud Haske
 In addition there are rich facilities to create distributed systems in Haskell. 
 
 Unfortunately Cloud Haskell has to be somewhat opinionated since some features it provides would not be possible otherwise. 
-The biggest problem is the fact that Haskell does not provide a way to serialize functions at all. 
-Cloud Haskell solves the function serialization problem through the `distributed-static` package which requires some restrictions in the way functions are defined to work.
+The biggest problem is the fact that Haskell does not provide a way to serialize functions at all[@paper-thitc, chap. 5, 6]. 
+Cloud Haskell solves the function serialization problem through the *distributed-static*[@hackage-distributed-static] package, which requires some restrictions in the way functions are defined to work.
 
 ## Dependent Typing
 
