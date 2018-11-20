@@ -125,12 +125,12 @@ In Haskell this behavior can be enabled using Language extensions.
 
 In Haskell types and values are fundamentally different from each other. 
 For dependent typing to be possible, there has to be a way to convert between types and values. 
-To convert some values to types the `DataKinds` language extension was introduced. 
+To convert some values to types the `DataKinds`[@paper-ghp] language extension was introduced. 
 `DataKinds` allows data types to be promoted to kinds and their value constructors to types. 
 The type equivalent to functions are type families. 
 Haskell itself does not provide a mechanism to promote functions to type families. 
 The *singletons* library provides a way to promote functions, as well as other facilities helpful for dependent typing. 
-Since I ended up not using the *singletons* library I wont go into detail describing it here.  
+Since I ended up not using the *singletons*[@paper-dtpws] library I wont go into detail describing it here.  
 
 ## Haskell Language features 
 
