@@ -10,7 +10,7 @@ tags:
 
 # Introduction
 
-The goal of this thesis is to explore Actor frameworks, similar to Akka for Haskell, in particular how Haskell's type system can be leveraged to improve upon Akkas design.
+The goal of this thesis is to explore how Haskell's type system can be leveraged to to create an Actor frameworks, similar to Akka, that allows the user to better reason about the runtime behavior of the system.
 Haskell gives us many tools in its type system that together with Haskell's purely functional nature enables us to formulate more strict constraints on Actor systems.
 To formulate these constraints I will leverage some of Haskell's dependent typing features.
 Another focus of the thesis is the testability of code written using the created framework.
@@ -119,18 +119,94 @@ data Vec (l :: Nat) (a :: *) where
     VCons :: a -> Vec l a -> Vec (l + 1) a
 ```
 
-Where `Nat` is a kind that represents positive integers as types. 
-This example illustrates one of the core properties of dependent types: Values and types are interchangeable, that means `0` and `l + 1` are types. 
-In Haskell this behavior can be enabled using Language extensions.  
+Where `Nat` is a kind that represents positive integers as types.
+A kind can be thought of as a type of types[@pierce-tapl, chap 29].
+The kind of complete type in Haskell, like `Bool` is called `*`[@GHC-kinds].
+In contrast the type of a typeconsrucor like `Maybe` has the kind `* -> *`.
+`* -> *` means that this typeconstructor will produce a type of kind `*` if it is provided with a type of kind `*`.
+The `DataKinds`[@paper-ghp] language extension provides a way to promote datatypes to kinds.
+The value constructors of the promoted datatype become types or typeconstrcutors.
+There are no values associated with the resulting types.
+The only use of these types is as shadow types or arguments to typefamilies and typeclasses.
+Take for example the type `data Bool = True | False`.
+If we promote `Bool` to a kind we can create a version of `Maybe` that keeps the information wether or not it contains a value in its type:
 
-In Haskell types and values are fundamentally different from each other. 
-For dependent typing to be possible, there has to be a way to convert between types and values. 
-To convert some values to types the `DataKinds`[@paper-ghp] language extension was introduced. 
-`DataKinds` allows data types to be promoted to kinds and their value constructors to types. 
-The type equivalent to functions are type families. 
-Haskell itself does not provide a mechanism to promote functions to type families. 
-The *singletons* library provides a way to promote functions, as well as other facilities helpful for dependent typing. 
-Since I ended up not using the *singletons*[@paper-dtpws] library I wont go into detail describing it here.  
+```haskell
+data CoolMaybe (b :: Bool) a where
+    CoolNothing :: CoolMaybe 'False a
+    CoolJust    :: a -> CoolMaybe 'True a
+```
+
+Notice that promoted values are preceded by a `'` to distiguesh them from their value counterparts.
+If we encounter the type `CoolMaybe 'True String` for example we know that a value of this type has to always contain a value of type `String`.
+We can use this information to create a safe version of `fromJust`:
+
+```haskell
+fromCoolJust :: CoolMaybe 'True a -> a
+fromCoolJust (CoolJust a) = a
+```
+
+If we want to call this function we first have to prove that the first type argument of `CoolMaybe` is `'True`.
+To define functions that operate on such a type we also have to reflect he transformations in the type.
+
+```haskell
+firstCool :: CoolMaybe a c -> CoolMaybe b c -> CoolMaybe (Or a b) c
+firstCool (CoolJust a) (CoolJust _) = CoolJust a
+firstCool (CoolJust a) CoolNothing  = CoolJust a
+firstCool CoolNothing (CoolJust a)  = CoolJust a
+firstCool CoolNothing CoolNothing   = CoolJust a
+```
+
+In this example `And` is a typefamily.
+That is, a function on types:
+
+```haskell
+type family Or (a :: Bool) (b :: Bool) :: Bool where
+    Or 'True b = 'True
+    Or a 'True = 'True
+    Or a     b = 'False
+```
+
+We have to write every possible pattern of value constructors in the definition of `firstCool` because Haskell can't prove that the resulting value has the expected type.
+For GADTs with more constructors than this becomes tedious.
+In those cases it might be beneficial to use typeclasses:
+
+```haskell
+data Proxy (a :: k) = Proxy
+
+class ShowMEmpties (l :: [*]) where
+    showMEmpties :: Proxy l -> [String]
+instance ShowMEmpties '[] where
+    showMEmpties _ = []
+instance (ShowMEmpties as, Show a, Monoid a) => ShowMEmpties (a ': as) where
+    showMEmpties _ = show (mempty :: a) : showMEmpties (Proxy :: Proxy as)
+```
+
+These typeclasses shift the burdon of proof onto the user.
+Each time you want to call `showMEmpties` you will also have to prove that an instance `ShowMEmpties` exists for the specific `l` you want to use.
+Never the less this is often the only way of working with data kinds.
+
+### singletons
+
+Since types and values are fundamentally different in Haskell there is no native way to demote a promoted data constructor back to a value.
+That means once we promote `True` to `'True` we can't retrieve a value of type `Bool` from the type `'True` even though the relationship is clear.
+In fact in the typesystem the kind `Bool` and the type `Bool` don't have any connection anymore.
+The *singletons* package tries to fix this shortcomming[@paper-dtpws].
+*singletons* provides a typefamily `Sing` that associates each promoted kind with its original type.
+For type in Haskell's *base* package *singletons* provides this mapping out of the box.
+For user defined types *singeltons* provides facilities to derive `Sing`.
+Additionally *singletons* also provides a general way of promoting functions to typefamilies[@paper-pfttfih].
+
+Since *singletons* provides general ways to promote and demote types and functions the resulting code is quite opaque.
+As a result any library using the *singeltons* library almost certainly will have unreadable compiler errors.
+Generating compile errors if a certain behavior violates some invariant is the goal though.
+In my implementation I chose not to use the *singletons* library for that reason.
+I still heavily relied on ideas the library is based on and performed the promotions by hand.
+
+## mtl Monad classes
+
+the *mtl* library provides a suite of classes that generelizes different monads[@paper-fpwoahop, chap. Operations on Monads.].
+
 
 ## Haskell Language features 
 
