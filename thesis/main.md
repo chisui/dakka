@@ -394,10 +394,13 @@ Actors have to implement a typeclass `Actor a` where `a` is the type we can use 
 The `Actor` class has a single function called `behavior`, which describes the behavior of the Actor. 
 What kind of messages an Actor can handle and what kind of Actors it may create in response has to be encoded in some way as well. 
 
-The monad which models an Actors action is also a typeclass, that has roughly the form `Monad m => ActorContext m`. 
+The monad which models an Actors action is also a typeclass, that has roughly the form `class Monad m => ActorContext m`. 
+In contrast `ActorContext` could also be defined as a concrete datatype that implements `Monad`.
 This `ActorContext` is an *mtl* style monad class, which makes it possible to have different implementations of Actor systems at once. 
 This makes it possible for example to create one implementation that is meant for testing Actors and another one that actually performs these actions inside of a distributed Actor system. 
-Defining the monad as a typeclass also makes it possible to use something else then *cloud-haskell* as a backend without having to rewrite any Actor implementations.
+Defining the monad as an typeclass also makes it possible to use different backends without rewriting the actors themselves.
+One such backend may be *cloud-haskell*.
+Implementations for testing are also just different backends in this architecture.
 
 ## Actor
 
@@ -484,7 +487,8 @@ As a reminder, the three Actor operations are:
    In other words change their internal state.
 
 The most straight forward way to implement these actions would be to use a monad transformer for each action. 
-Creating and sending could be modeled with `WriterT` and changing the internal state through `StateT`.
+Creating and sending could be modeled with `WriterT [SystemMessage]` where `SystemMessage` encapsulates each both the intent to create an actor as well as sending a message to a specific actor.
+Changing the internal state of the actor could be achieved through `StateT s` where `s` is the internal state of the actor or the actortype to be more specific.
 
 But here we encounter several issues:
 
