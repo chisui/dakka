@@ -203,10 +203,32 @@ Generating compile errors if a certain behavior violates some invariant is the g
 In my implementation I chose not to use the *singletons* library for that reason.
 I still heavily relied on ideas the library is based on and performed the promotions by hand.
 
-## mtl Monad classes
+## mtl Monad classes and Monad-transformers
 
-the *mtl* library provides a suite of classes that generelizes different monads[@paper-fpwoahop, chap. Operations on Monads.].
+The *mtl* library provides a suite of classes that generalizes different monads[@paper-fpwoahop, chap. Operations on Monads.].
+A common way of creating monads for specific usecases is by composing Monad-transformers[@paper-fpwoahop, chap. Monad Transformers.]
+For example we can compose the `StateT` Monad-transformer with with `Writer` monad to get a computation that both has a state and allows do write some output:
 
+```haskell
+type MyComp a = StateT Int (Writer [String]) a
+```
+
+If we now want to perform an operation on `Writer` we first have to enter the `StateT` monad.
+Lifting an operation from the Monad-transformers argument Monad to the cunstrcuted outer Monad can be done through a lifting function specific to each Monad-transformer. 
+These lifting functions are generalized by the `MonadTrans` class provided by the *transformers* package, that is bundled with each GHC.
+
+Explicitly lifting each operation to the appropriate level inside a chain of Monad-transformers is cubersome.
+*mtl* Monad classes get rid of lifting altogether, by providing a class for common Monad capabilities.
+In the `MyComp` example instead of lifiting a `Writer` operation inside `StateT` the `MonadWriter` class can be used.
+The `MonadWriter` class provides the same functions that are used to interact with the `Writer`Monad.
+The *mtl* package provides instances of `MonadWriter` and other Monad classes for common Monad-transformers in such a way that if a Monad inside the transformer chain provides the classes functionallity the whole chain does too.
+
+These Monad classes are not only useful for interacting with Monad-transformers, but also when creating Monads manually.
+If the created Monad shares some capabilities with a common Monad or Monad-transformer, these capabilities can be expressed by providing an instance of that Monad class for the created Monad.
+
+Another use for these Monad classes is that they allow for a more general expression of monadic code.
+For example you if you express a monadic computation in terms of `MonadWriter` instead of `Writer` itself, the computation can be used inside of any Monad that implements `MonadWriter`.
+This computation can now be executed in either the strict or the lazy variant of the `Writer` Monad or any Monad-transformer chain that contains a `Writer` or `WriterT`.
 
 ## Haskell Language features 
 
@@ -493,8 +515,12 @@ Changing the internal state of the actor could be achieved through `StateT s` wh
 But here we encounter several issues:
 
 1. To change the state me must know which Actors behavior we are currently describing.
+   Since the actor type has to be deducable from the context type.
+   That means the type has to be more complex then simply `ActorContext a`.
 2. To send a message we must ensure that the target Actor can handle the message.
+   If we allow values of `SystemMessage` to be created freely we can not ensure that the recieving actor can handle the sent message
 3. To create an Actor we have to pass around some reference to the Actor type of the Actor to create. 
+   
 
 The first issue can be solved by adding the Actor type to `ActorContext` as a type parameter.
 
