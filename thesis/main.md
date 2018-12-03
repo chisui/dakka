@@ -682,11 +682,15 @@ The `Creates` typefamily is useful for defining assumtions that concern the hier
 For example we can formulate an assumtion that states that all Actors in a given Actor system fulfill a certain constraint.
 
 ```haskell
-type family AllActorsImplement (c :: * -> Constraint) (a :: *) :: Constraint where
-    AllActorsImplement c a = (c a, AllActorsImplementHelper c (Creates a))
-type family AllActorsImplementHelper (c :: * -> Constraint) (as :: [*]) :: Constraint where
+type family AllActorsImplement 
+  (c :: * -> Constraint) (a :: *) :: Constraint where
+    AllActorsImplement c a 
+        = (c a, AllActorsImplementHelper c (Creates a))
+type family AllActorsImplementHelper
+  (c :: * -> Constraint) (as :: [*]) :: Constraint where
     AllActorsImplementHelper c '[]       = ()
-    AllActorsImplementHelper c (a ': as) = (AllActorsImplement c a, AllActorsImplementHelper c as)
+    AllActorsImplementHelper c (a ': as) 
+        = (AllActorsImplement c a, AllActorsImplementHelper c as)
 ```
 
 We can also enumerate all Actor types in a given Actor system.
@@ -918,7 +922,8 @@ With this the signature of `behavior` will change to:
 Where `ImplementsAll` is a typefamily of kind `Constraint` that checks that the concrete context class fulfills all constraints in the given list:
 
 ```haskell
-type family ImplementsAll (a :: k) (c :: [k -> Constraint]) :: Constraint where
+type family ImplementsAll
+  (a :: k) (c :: [k -> Constraint]) :: Constraint where
     ImplementsAll a (c ': cs) = (c a, ImplementsAll a cs)
     ImplementsAll a '[]       = ()
 ```
@@ -970,10 +975,13 @@ data ActorEff a v where
 With this we can define the functions:
 
 ```haskell
-send :: (Member (ActorEff a) effs, Actor b) => ActorRef b -> Message b -> Eff effs ()
+send :: (Member (ActorEff a) effs, Actor b) 
+     => ActorRef b -> Message b -> Eff effs ()
 send ref msg = Freer.send (Send ref msg)
 
-create :: forall b a effs. (Member (ActorEff a), Actor b) => Eff effs ()
+create :: forall b a effs. 
+          (Member (ActorEff a), Actor b) 
+       => Eff effs ()
 create = Freer.send $ Create (Proxy @b)
 
 become :: Member (ActorEff a) effs => a -> Eff effs ()
@@ -983,10 +991,13 @@ become = Freer.send . Become
 We can also define these operations without a new datatype using the predefined effects for `State` and `Writer`:
 
 ```haskell
-send :: (Member (Writer [SystemMessage]) effs, Actor b) => ActorRef b -> Message b -> Eff effs ()
+send :: (Member (Writer [SystemMessage]) effs, Actor b) 
+     => ActorRef b -> Message b -> Eff effs ()
 send ref msg = tell (Send ref msg) 
 
-create :: forall b a effs. (Member (Writer [SystemMessage]), Actor b) => Eff effs ()
+create :: forall b a effs. 
+          (Member (Writer [SystemMessage]), Actor b) 
+       => Eff effs ()
 create = tell $ Create (Proxy @b)
 ```
 
@@ -1048,7 +1059,8 @@ instance Actor a => MonadState a (MockActorContext a) where
 With this the actual definition of `ActorContext` for `MockActorContext` is pretty short.
 
 ```haskell
-instance (Actor a, MockActorContext a `CanRunAll` a) => ActorContext a (MockActorContext a) where
+instance (Actor a, MockActorContext a `CanRunAll` a) 
+         => ActorContext a (MockActorContext a) where
 
     self = ask
 
@@ -1065,8 +1077,12 @@ It does not make sense though, to export this capability directly, since `CtxSta
 So exported variants on the core running function construct `CtxState` values themselves.
 
 ```haskell
-runMockInternal :: forall a v. Actor a => MockActorContext a v -> ActorRef a -> CtxState -> ((v, CtxState), [SystemMessage])
-runMockInternal (MockActorContext ctx) ref = runWriter . runStateT (runReaderT ctx ref)
+runMockInternal :: forall a v. Actor a 
+                => MockActorContext a v -> ActorRef a -> CtxState 
+                -> ((v, CtxState), [SystemMessage])
+runMockInternal (MockActorContext ctx) ref 
+    = runWriter 
+    . runStateT (runReaderT ctx ref)
 ```
 
 ## executing in a destributed environment
@@ -1094,7 +1110,8 @@ newtype DistributedActorContext a v
 `ActorContext` has to be implemented manually.
 
 ```haskell
-instance (DistributedActorContext a `A.CanRunAll` a) => A.ActorContext a (DistributedActorContext a) where
+instance (DistributedActorContext a `A.CanRunAll` a) 
+         => A.ActorContext a (DistributedActorContext a) where
     self = A.ActorRef . encode <$> liftProcess getSelfPid
     (A.ActorRef pid) ! m = liftProcess $ send (decode pid) m
 
@@ -1111,11 +1128,17 @@ More on this in the next section
 Executing an `Actor` in this context, now means dispatching a `Created` signal and continously polling for messages.
 
 ```haskell
-runActor :: forall a proxy. (A.Actor a, DistributedActorContext a `A.CanRunAll` a) => proxy a -> Process ()
-runActor _ = void . runStateT (runDAC (initActor *> forever awaitMessage)) $ A.startState @a
+runActor :: forall a proxy. 
+            (A.Actor a, DistributedActorContext a `A.CanRunAll` a) 
+         => proxy a -> Process ()
+runActor _ 
+    = void 
+    . runStateT (runDAC runActor') $ A.startState @a
   where
+    runActor' = initActor *> forever awaitMessage
     initActor = A.behavior . Left $ A.Created
-    awaitMessage = A.behavior . Right =<< liftProcess (expect @(A.Message a))
+    awaitMessage = A.behavior 
+                 . Right =<< liftProcess (expect @(A.Message a))
 ```
 
 ### Creating Actors

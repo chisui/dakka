@@ -32,8 +32,8 @@ mkPandoc {
   else (builtins.toFile "dakka-thesis-hashes.tex" ''
     \${if book then "chapter" else "section"}{Appendix}
 
-    All code produced including this thesis itself is developed on github at
-    \url{https://github.com/chisui/dakka}. This thesis is based on the
+    All code produced including this thesis itself can be found on github at
+    \url{https://github.com/chisui/dakka}. This document is based on the
     following commit.
     
     \begin{footnotesize}
@@ -47,7 +47,7 @@ mkPandoc {
 
     \url{https://github.com/chisui/dakka/tree/${commitHash}}.
 
-    To verify the hash run:
+    To verify the hash download the tarball, unpack it and hash its contents by running:
 
     \begin{scriptsize}
     \begin{verbatim}
