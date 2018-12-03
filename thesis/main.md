@@ -111,7 +111,7 @@ A dependent type is a type that depends on a value.[@paper-ydtm]
 Dependent types are a way to express relationships between values inside of a type system. 
 The canonic example for dependent types is a length indexed vector. 
 A length indexed vector is a list which length is derivable from its type. 
-This can be defined as a Haskell GADT:
+This can be defined as a Haskell GADT[@paper-wt]:
 
 ```haskell
 data Vec (l :: Nat) (a :: *) where
@@ -329,7 +329,7 @@ To be able to use `Key` and `Elem` as key and value of `Map` `Key` has to implem
 Additionally we need equality on `HMap` for which both `Key` and `Elem` have to implement `Eq`.
 
 To implement either `Eq` or `Ord` it is necessary to have an instance `Ord (k a)` for all `a`. 
-Unfortunately it is not possble to use the `forall` keyword in the context of instance declrations (yet [@hku-qantified-clas-constraints]). 
+Unfortunately it is not possble to use the `forall` keyword in the context of instance declrations (yet [@paper-qcc]). 
 A work around until `GHC 8.6` is to capture all commonly used classes inside of the `Key` and `Elem` constructors.
 
 ```haskell
@@ -350,7 +350,7 @@ instance Ord (Key k) where
 ```
 ### Typeable
 
-In the process of compiling Haskell, all type information is removed since it is not needed at runtime. 
+In the process of compiling Haskell, all type information is removed since it is not needed at runtime[@paper-syb].
 Type information may be useful at runtime. If a type is hidden via existential quantification it may be useful to be able to get a `String` representation of the captured type for debug and/or `Show` purposes for example. 
 Without some way of retrieving type information at runtime it would also be impossible to define an `Eq` instance for data types using existential quantification.
 
@@ -943,7 +943,7 @@ These would be useful even outside of this Actor framework.
 
 #### the Eff monad
 
-The `Eff` monad as described in the `freer`, `freer-effects` and `freer-simple` packages is a free monad that provides an alternative way to monad classes and monad transformers to combine different effects into a single monad.
+The `Eff` monad as described in the `freer`, `freer-effects` and `freer-simple` packages is a free monad[@paper-dtalc] that provides an alternative way to monad classes and monad transformers to combine different effects into a single monad.
 
 In category theory a free monad is the simplest way to turn a functor into a monad. 
 In other words it's the most basic construct for that the monad laws hold given a functor.
