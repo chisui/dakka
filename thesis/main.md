@@ -1157,15 +1157,22 @@ Luckily there is a way to enumerate all Actor types that exist in a given Actor 
 I was not able to do this though for time reasons.
 As the hirarchy of the Actor system, described by the `Creates` typefamily is potentially infinite, the registration would have to perform cycle detection on the type level.
 
-As a result dakka currently has not the capability to run a full distributed Actor system.
+Alternatively we can also parametrize the actor context by a type list of kind `[*]`.
+This list represents a flattened version of the Actor system's hirarchy.
+Each actor type inside of the actor system has to be a an element of that list.
+All ActorContext operations have to check that the relevant Actors are in fact elements of that list.
+Although this solution may appear trivial, I discovered it at a very late stage of the project.
+As a result this solution is not incoorporated into the main library code.
+A proof of concept exists in the source repository at `./cloud-fix/Main.hs`.
+This proof of concept also includes a running example of a solution for the dinning philosophers problem as well as a ping pong example.
 
 # Results
 
-Although I do not have a runnable distributed system there are usable results in here. 
-
-## Actor framework
-
 I demonstrated that it is possible to create an Actor framework in Haskell that is capable of expressing many constraints about it's hierarchy and the capabilities of the Actors in it, using the type system. 
+The created framework allows a wide range of properties of actors to be expressed and reasoned about at compiletime.
+Through the `Capabillities` mechanism and the fact that Actors defined in the framework can be run again multiple backends it is also etensible.
+To test Actors the just have to be run against a testing backend.
+If the provided testing backend isn't sufficient it can be augmented with additional capabilities by implementing appropriate type classes or using newtypes.
 
 ## Dependent types in Haskell
 
@@ -1182,12 +1189,56 @@ Even though they are not dependent types many of the more advanced type-level-co
 
 ## Cloud Haskell
 
+Since most of the effort went into creating a typed interface rather then the actual execution of it I ca not comment on how cloud haskell actually performes as a backend for the created interface.
+
 Big parts of the backend for the created API were implemented for cloud-haskell.
 The implementation was very straight forward for the most part since cloud haskell provides similar primitives to the API itself.
 Parts that required the serialization of polymorphic values were not that easily implemented.
-In fact the process of serialization itself is a big issue for cloud-haskell as well and requires a big amount of work, more than would be feasable for this thesis.
-As far as I can tell there should not be any conceptual issues.
+The cloud-haskell paper[@paper-thitc] outlines that there should ultimatly be a GHC native support for static values.
+Until then writing generic code that may serialize arbitrary data is forced to perform a great deal of type level computation.
 
-Since most of the effort went into creating a typed interface rather then the actual execution of it I ca not comment on how cloud haskell actually performes as a backend for the created interface.
+## Future Work
+
+Although it is possible to use the created framework as is, it is quite cumbersome to use at times and has room for improvement.
+
+### General cleanup
+
+The codebase has be growing organically in the courese of the project.
+As a result, the code can be streamlined and cleaned up.
+Since the creation process was also a learning experience it contains a few remnants of experiments that are no longer needed.
+For this framework to be usable it also requires better documentation.
+Both Haddock comments inside of the code and basic tutorials would be needed.
+
+### Automatically flattening the Actor System type hirarchy
+
+Currently you have to provide a flat representation of all Actor types inside of an Actor system if you want to run int manually.
+This representation could be derived from the root Actor of the Actor system.
+For this all entries inside of the `Creates` type family have to be recursively aggregated.
+Since the graph of Actor types inside of an Actor system may have cycles, flattening this graph requires cycle detection inside a type computation.
+
+### Support more Akka features
+
+Although the API is inspired by Akka, it only provides a very small subset of it's operation.
+For realworld usecases this has to be expanded.
+It would be useful for example to provide an Actor with an initial state on creation.
+This features was explored briefly in the `cloud-fix/Main.hs` proof of concept.
+
+Another big feature of Akka is Actor discovery.
+It's possible to search for specific Actors inside of an Actor system.
+Together with the ability to name Actors and search them by name this is a powerful feature.
+It would be interesting to examine whether or not this feature in particular can be added in a typesafe fashion. 
+
+### Better type error messages
+
+When using type level computation in Haskell compiler error messages currently are not very refined in general. 
+A common error is that two type epressions to not unify to the same type or that no definition for a type family exists for some given types.
+These errors may occure deep inside of complex type expressions and may be dealing with types that have little connection to the types in the contet that the error was caused by.
+This makes debugging hard for the author of these type expressions and basically impossible for anyone else without consulting the source code of these expressions themselves.
+When creating a framework it can not be expected of a user to consult the source code of the framework each time a type expression from that framework causes a compiler error.
+
+In Dakka these type expressions are used to prevent the user from using the framework wrongly.
+The error messages thus should tell the user what they did wrong and ideally how to fix this.
+
+There are techniques to aid the user here though.
 
 # Bibliography

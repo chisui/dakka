@@ -1,0 +1,28 @@
+name: dakka
+version: 0.4.0
+synopsis: Minimal akka-inspired- dependently typed actor library
+description: Minimal akka-inspired- dependently typed actor library
+maintainer: Philipp Dargel <chisui@informatik.uni-bremen.de>
+category: Concurrency
+license: MIT
+
+dependencies:
+- base
+- containers
+- transformers
+- bytestring
+- constraints
+- mtl
+- type-fun
+- binary
+- rank1dynamic
+- distributed-process
+- distributed-static
+- network-transport
+- network-transport-tcp
+- network-transport-inmemory
+
+executable:
+  source-dirs: .
+  main: Main.hs
+
