@@ -238,7 +238,7 @@ Especially working with dependent types and using more advanced features of Hask
 Language extensions are enabled using `LANGUAGE` pragmas at the beginning of the file for which the extension should be enabled. 
 
 - `DataKinds`: Allows data types to be promoted to kinds and value constructors to types[@paper-ghp]. 
-- `TypeFamilies`: Adds the ability to define type and data families. A type family can be thought of as a function on types.
+- `TypeFamilies`: Adds the ability to define type and data families. A type family can be thought of as a function on types[@paper-fwtf].
 - `PolyKinds`: Allows mixing different kinds. For example `k` in `l :: [k]` could normally only be of kind `*` but with `PolyKinds` it may be any kind.
 
 These extensions are the foundation for dependent typing in Haskell. 
