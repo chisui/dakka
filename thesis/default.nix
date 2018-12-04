@@ -27,6 +27,7 @@ mkPandoc {
     geometry     = "left=3.5cm, right=2.5cm";
     toc-own-page = true;
     titlepage    = true;
+    listings-no-page-break = true;
   };
   include-after-body = if commitHash == null || sha256 == null then null
   else (builtins.toFile "dakka-thesis-hashes.tex" ''
