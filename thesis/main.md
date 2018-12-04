@@ -11,7 +11,7 @@ tags:
 # Introduction
 
 The goal of this thesis is to explore how Haskell's type system can be leveraged to create an Actor frameworks, similar to Akka, that allows the user to better reason about the runtime behavior of the system.
-Haskell gives us many tools in its type system that together with Haskell's purely functional nature enables us to formulate more strict constraints on Actor systems.
+Haskell provides many tools in its type system that together with Haskell's purely functional nature enables us to formulate more strict constraints on Actor systems.
 To formulate these constraints I will leverage some of Haskell's dependent typing features.
 Another focus of the thesis is the testability of code written using the created framework.
 
