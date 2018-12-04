@@ -19,6 +19,29 @@ I will show that leveraging Haskell's advantages can be used to create an Akka l
 The implementation of the Actor framework and important design decisions will be discussed in detail.
 I will also show that exessive usage of the type system has some downsides that mostly relate to the maturity of Haskell's dependent typing features.
 
+## Motivation
+
+Parallel programming is very important in the current tech environment and will become even more so.
+Single processor cores are not getting significantly faster, instead more cores are added to a single processor.
+As a result efficiently utilizing contemporary processors requires workloads to be processed in prallel.
+When dealing with parallelism the typesystem normally is not helpful in preventing bugs.
+
+Destributed systems systems are also becoming more and more important with the advent of the Internet of Things (IoT).
+For IoT devices, it becomes even more important that software is bug free.
+Depending on the kind of deployment it may be hard to debug a device.
+Rolling out patches is also a hard task that would be nice to avoid if possible.
+
+Actor systems provide a way of modeling programs that is particularly suited for parallel and distributed execution.
+There are many systems that use Actor systems for exactly that purpose.
+The Erlang language and the Akka framework for the Java Virtual Machine (JVM) are two of the most prominent examples.
+There exists also cloud-haskell for GHC Haskell.
+
+When creating an Actor system, types may be used to check the behavior of a single actor internally, but not often properties about the Actor system as a whole.
+That may make it possible for example to send messages to Actors that could never exist in the Actor system, or send messages to Actors that those can not handle.
+
+Haskell provides a strong type system that can be used to express these kinds of invariants.
+Unfortunately the only major Actor framework for Haskell does not utilize it to do so.
+
 ## Goals
 
 I want to create an Actor framework for Haskell that leverages the type system to constraint Actor behaviors to minimize unexpected sideeffects.
@@ -1216,6 +1239,15 @@ This representation could be derived from the root Actor of the Actor system.
 For this all entries inside of the `Creates` type family have to be recursively aggregated.
 Since the graph of Actor types inside of an Actor system may have cycles, flattening this graph requires cycle detection inside a type computation.
 
+### Generic Actors 
+
+Currently the API is not designed with generic Actor types in mind.
+I also did not experiment with generic Actor types.
+Generic Actor types should work just fine with the current API.
+Although it is possible that the `Creates` associated type families may cause issues.
+
+Another question is if it is even useful to have generic Actor types.
+
 ### Support more Akka features
 
 Although the API is inspired by Akka, it only provides a very small subset of it's operation.
@@ -1240,5 +1272,30 @@ In Dakka these type expressions are used to prevent the user from using the fram
 The error messages thus should tell the user what they did wrong and ideally how to fix this.
 
 There are techniques to aid the user here though.
+
+### Make Actor creation easier
+
+Currently you have to perform many steps to create an Actor in Dakka.
+You have to create a data type for your Actor and implement the `Actor` class for it.
+
+The data type has to also have `Show`, `Eq` and `Binary` instances.
+`Show` and `Eq` instances can be derived.
+Deriving `Binary` is not directly possible.
+To optain a `Binary` instance without implementing it manually you have to derive `Generic` and than create an empty `Binary` implementation.
+To be able to derive `Generic` instance though you have to enable the `DeriveGeneric` language extension.
+With the `DeriveAnyClass` language extension you can remove the empty `Binary` implementation with an entry in the `deriving` clause of the data type.
+`DerivingAnyClass` can not always determine what derving strategy should be used for a specific class or the user does not want to use a certain deriving strategy.
+This comes up most often when using `DerivingAnyClass` in conjunction with `GeneralizedNewtypeDeriving`.
+When creating an Actor it is very likely that the internal state of that Actor can be modeled by an existing data type.
+Defining the Actor as a `newtype` is thus a reasonable thing to do.
+For these cases the `DerivingStrategies` language extension exists, which enables the user to specify the desired deriving strategy manually.
+
+Implementing the `Actor` class consists of providing an implementation of `behavior`.
+If the Actor wants to create other actors the `Creates` associated type family also has to be overriden.
+If the Actor wants to do anything but the basic Actor operations the `Capabillities` associated type family has to be overriden.
+
+All of these potential steps add up to a substantial amount of boilerplate code.
+It would be nice if the Amount of Boilerplate could be reduced without weakening the constraints of the API.
+The most promising way to achieve this is seems to be TemplateHaskell.
 
 # Bibliography
