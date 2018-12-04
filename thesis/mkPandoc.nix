@@ -1,7 +1,7 @@
 args:
 let 
-  commit = "5f9be606f6c8aff8a0d491d2651a59ae18be2ab9";
-  sha256 = "146yg3pxg1qk8mhz1dbwpdpaxv2wh5222iclw6cmnqll24zcv9p9";
+  commit = "fed6ecb3fe8fc0d953038a62b829abc908627f16";
+  sha256 = "1hh2f06n6lqmzpvv22vinkmj70xqy87rx1fz2swvdbznb5ylknx4";
 in import (builtins.fetchTarball {
   inherit sha256;
   url = "https://github.com/chisui/nix-mkPandoc/archive/${commit}.tar.gz";
