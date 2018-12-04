@@ -24,7 +24,7 @@ mkPandoc {
   number-sections = true;
   variables = {
     inherit date book;
-    geometry     = "left=3.5cm, right=2.5cm";
+    geometry     = if book then "left=3.5cm, right=2.5cm" else "";
     toc-own-page = true;
     titlepage    = true;
     listings-no-page-break = true;
