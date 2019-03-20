@@ -15,7 +15,7 @@ mkPandoc {
   documentFile = ./main.md;
   bibliography = ./bibliography.bib;
   filters      = [ pandoc-citeproc ];
-  template     = mkPandoc.template.latex.eisvogel;
+  template     = import ./eisvogel.nix { inherit pkgs; };
   csl          = mkPandoc.csls.journal-of-computer-information-systems;
 
   listings     = true;
@@ -57,6 +57,18 @@ mkPandoc {
       ${sha256}
     \end{verbatim}
     \end{scriptsize}
+
+    \${if book then "chapter" else "section"}{Eigenständigkeitserklärung}
+
+    Hiermit versichere ich dass diese Arbeit selbstständig verfasst und nur die angegebenen Quellen und Hilfsmittel – insbesondere keine im Quellenverzeichnis nicht benannten Internetquellen - benutzt wurden, und die Arbeit vorher nicht in einem anderen Prüfungsverfahren eingereicht wurde.
+    Wörtlich oder dem Sinn nach aus anderen Werken entnommene Stellen sind unter Angabe der Quellen kenntlich gemacht.
+
+    \vspace{5cm}
+
+    \begin{tabular}{@{}p{.5in}p{4in}@{}}
+    & \hrulefill \\
+    & Philipp Dargel \\
+    \end{tabular}
   '');
   inherit verbose; 
 }
