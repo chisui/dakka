@@ -6,7 +6,11 @@ mkPandoc {
   name       = "dakka-presentation.html";
   version    = "0.1.0";
   src        = ./index.md;
-  to         = "dzslides";
+  to         = "revealjs";
   standalone = true;
+  incremental = true;
+  variables = {
+    revealjs-url = "https://revealjs.com";
+  };
   inherit verbose; 
 }
