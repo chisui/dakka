@@ -24,3 +24,9 @@ To include the current date and hashes for the current `HEAD` of `master` run:
 
 Check out a build pdf version of the current master version [here](https://chisui.github.io/dakka/thesis.pdf).
 
+## Build presentation
+
+    nix build -f presentation
+
+Checkout a build version of the current master version [here](https://chisui.github.io/dakka/).
+
