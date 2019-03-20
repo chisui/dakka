@@ -1,5 +1,7 @@
 
 [![Build Status](https://travis-ci.org/chisui/dakka.svg?branch=master)](https://travis-ci.org/chisui/dakka)
+[![Dakka: thesis](https://img.shields.io/badge/Dakka-thesis-green.svg)](https://chisui.github.io/dakka/thesis.pdf)
+[![Dakka: presentation](https://img.shields.io/badge/Dakka-presentation-green.svg)](https://chisui.github.io/dakka/)
 
 # Dakka
 
