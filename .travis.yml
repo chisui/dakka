@@ -16,4 +16,3 @@ script:
     echo "pdf updated"
     cd "$TRAVIS_BUILD_DIR"
   fi
-- nix build
