@@ -39,27 +39,96 @@
   <p class="date">21.03.2019</p>
 </section>
 
-<section id="motivation" class="slide level3">
-<h3>Motivation</h3>
+<section id="ablauf" class="slide level1">
+<h1>Ablauf</h1>
 <ul>
-<li class="fragment">Akka</li>
-<li class="fragment">Get out of bed</li>
+<li class="fragment">Grundlagen</li>
+<li class="fragment">Umsetzung
+<ul>
+<li class="fragment">Architektur</li>
+<li class="fragment">Code</li>
+</ul></li>
+<li class="fragment">Ergbenis und Ausblick</li>
 </ul>
 </section>
-<section id="breakfast" class="slide level3">
-<h3>Breakfast</h3>
+<section id="grundlagen" class="slide level1">
+<h1>Grundlagen</h1>
+</section>
+<section id="aktor-model" class="slide level1">
+<h1>Aktor Model</h1>
+<p>Aktoren sind eine Modellierung nebenläufiger Programme und verteilte Systeme.</p>
+</section>
+<section id="aktor-model-1" class="slide level1">
+<h1>Aktor Model</h1>
+<p>Als Reaktion auf eine Nachricht kann ein Aktor</p>
 <ul>
-<li class="fragment">Eat eggs</li>
-<li class="fragment">Drink coffee</li>
+<li class="fragment">endlich viele neue Aktoren erzeugen</li>
+<li class="fragment">endlich viele Nachrichten an Aktoren senden</li>
+<li class="fragment">sein Reaktionsverhalten auf nachfolgende Nachrichten verändern</li>
 </ul>
 </section>
-<section><section id="in-the-evening" class="title-slide slide level2"><h2>In the evening</h2></section><section id="dinner" class="slide level3">
-<h3>Dinner</h3>
+<section id="akka" class="slide level1">
+<h1>Akka</h1>
+<p>Aktor Implementierung in Scala</p>
+</section>
+<section id="cloud-haskell" class="slide level1">
+<h1>cloud-haskell</h1>
 <ul>
-<li class="fragment">Eat spaghetti</li>
-<li class="fragment">Drink wine</li>
+<li class="fragment"><em>Erlang-style</em> concurrent and distributed programming in Haskell.</li>
 </ul>
-</section></section>
+</section>
+<section id="umsetzung" class="slide level1">
+<h1>Umsetzung</h1>
+</section>
+<section id="haskell-language-extensions" class="slide level1">
+<h1>Haskell Language extensions</h1>
+</section>
+<section id="ziele" class="slide level1">
+<h1>Ziele</h1>
+<ul>
+<li class="fragment">Akka-ähnliche API</li>
+<li class="fragment">Kontrollierter Umgang mit <code>IO</code></li>
+<li class="fragment">Typsicherheit falls möglich</li>
+</ul>
+</section>
+<section id="architektur" class="slide level1">
+<h1>Architektur</h1>
+<ul>
+<li class="fragment">Aktoren werden durch einen eigenen Datentyp dargestellt.</li>
+<li class="fragment">Aktoren implementieren <code>Actor</code> Klasse.</li>
+<li class="fragment"><code>Actor</code> definiert Verhalten in eigener Monade.</li>
+</ul>
+</section>
+<section id="actoraction" class="slide level1">
+<h1>ActorAction</h1>
+</section>
+<section id="actor" class="slide level1">
+<h1>Actor</h1>
+</section>
+<section id="mockactoraction" class="slide level1">
+<h1>MockActorAction</h1>
+</section>
+<section id="distributedactoraction" class="slide level1">
+<h1>DistributedActorAction</h1>
+<ul>
+<li class="fragment">Serialisierung von Nachrichten.</li>
+</ul>
+</section>
+<section id="weitere-themen" class="slide level1">
+<h1>Weitere Themen</h1>
+<ul>
+<li class="fragment">Code Aufräumen.</li>
+<li class="fragment"><code>ActorAction</code> durch freie <code>Eff</code> Monade ersetzten.</li>
+<li class="fragment">type family zum Enumerieren von Aktoren.</li>
+<li class="fragment">Polymorphe Aktoren.</li>
+<li class="fragment">Mehr Akka features.</li>
+<li class="fragment">bessere Fehlernachrichten.</li>
+<li class="fragment">Aktor definition vereinfachen.</li>
+</ul>
+</section>
+<section id="fragen" class="slide level1">
+<h1>Fragen?</h1>
+</section>
     </div>
   </div>
 
