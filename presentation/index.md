@@ -5,20 +5,71 @@ author: Philipp Dargel
 date: 21.03.2019
 ---
 
+# Ablauf
 
-### Motivation 
+* Grundlagen
+* Umsetzung
+  * Architektur
+  * Code
+* Ergbenis und Ausblick
 
-- Akka
-- Get out of bed
+# Grundlagen
 
-### Breakfast
+# Aktor Model
 
-- Eat eggs
-- Drink coffee
+Aktoren sind eine Modellierung nebenläufiger Programme und verteilte Systeme.
 
-## In the evening
+# Aktor Model
 
-### Dinner
+Als Reaktion auf eine Nachricht kann ein Aktor
 
-- Eat spaghetti
-- Drink wine
+* endlich viele neue Aktoren erzeugen
+* endlich viele Nachrichten an Aktoren senden
+* sein Reaktionsverhalten auf nachfolgende Nachrichten verändern
+
+# Akka
+
+Aktor Implementierung in Scala
+
+# cloud-haskell
+
+* *Erlang-style* concurrent and distributed programming in Haskell.
+
+# Umsetzung
+
+# Haskell Language extensions
+
+# Ziele
+
+* Akka-ähnliche API
+* Kontrollierter Umgang mit `IO`
+* Typsicherheit falls möglich
+
+# Architektur
+
+* Aktoren werden durch einen eigenen Datentyp dargestellt.
+* Aktoren implementieren `Actor` Klasse.
+* `Actor` definiert Verhalten in eigener Monade.
+
+# ActorAction
+
+# Actor
+
+# MockActorAction
+
+# DistributedActorAction
+
+* Serialisierung von Nachrichten.
+
+# Weitere Themen
+
+* Code Aufräumen.
+* `ActorAction` durch freie `Eff` Monade ersetzten.
+* type family zum Enumerieren von Aktoren. 
+* Polymorphe Aktoren.
+* Mehr Akka features.
+* bessere Fehlernachrichten.
+* Aktor definition vereinfachen.
+
+# Fragen?
+
