@@ -13,36 +13,22 @@ dependencies:
 - containers
 - transformers
 - bytestring
-- contravariant
 - constraints
+- contravariant
 - mtl
+- data-default-class
 - binary
+- polysemy
 - distributed-process
 - distributed-static
 - network-transport
 - network-transport-tcp
-- dependent-map
-- dependent-sum
 
 library:
   source-dirs: src
   ghc-options: -Werror 
   exposed-modules:
-  - Dakka.Actor
-  - Dakka.AnswerableMessage
-  - Dakka.Actor.Internal
-  - Dakka.MockActorContext
-  - Dakka.RemoteTableState
-  - Dakka.Types
-  - Dakka.Convert
-  - Dakka.Constraints
-  - Dakka.HMap
-
-executable:
-  source-dirs: cloud
-  main: Main.hs
-  dependencies: 
-  - dakka
+  - Dakka
 
 tests:
   spec:
