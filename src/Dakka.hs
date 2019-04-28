@@ -28,19 +28,16 @@
 {-# LANGUAGE UndecidableSuperClasses    #-}
 module Dakka where
 
-import           "polysemy" Polysemy                     ()
-
-import           "data-default-class" Data.Default.Class (Default (def))
+import           "polysemy" Polysemy (Sem)
 
 
+data Signal a
 
 class Actor a where
+
   type Capabillites a :: [(* -> *) -> * -> *]
   type Capabillites a = '[]
 
-  initialState :: a
-  default initialState :: Default a => a
-  initialState = def
-
+  behavior :: Either (Signal a) a -> Sem (Capabillites a) ()
 
 

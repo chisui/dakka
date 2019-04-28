@@ -21,5 +21,13 @@ pkgs.haskell.packages.ghc865.override {
         sha256 = "0c71b3nc19zic9xiirkc41znv93f9j9qlf2kn89mjjyh9w7dazsn";
       }
     ) {};
+
+    # newer polysemy version
+    polysemy = hsSelf.callCabal2nix "polysemy" (
+      builtins.fetchTarball {
+        url    = "https://github.com/isovector/polysemy/archive/b125a9838f0bf48db3067507ef87cb5729a628f1.tar.gz";
+        sha256 = "1l3phasvbfdp9fbf47m4dfmd003pc7bl61mppxml6m07cf6vy6w7";
+      }
+    ) {};
   };
 }
